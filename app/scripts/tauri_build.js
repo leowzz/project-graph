@@ -1,28 +1,70 @@
 /* eslint-disable */
 import { spawn } from "child_process";
+import { pathToFileURL } from "node:url";
 
-// 从环境变量获取参数并分割成数组
-const tauriBuildArgs = process.env.TAURI_BUILD_ARGS ? process.env.TAURI_BUILD_ARGS.split(" ") : [];
+export function getTauriBuildArgs(env) {
+  return env.TAURI_BUILD_ARGS ? env.TAURI_BUILD_ARGS.split(" ").filter(Boolean) : [];
+}
 
-// 构造完整命令参数
-const args = ["tauri", "build", ...tauriBuildArgs];
+export function shouldForceCiForDmgBuild(args, platform) {
+  if (platform !== "darwin") {
+    return false;
+  }
 
-const pnpmBin = process.env.npm_execpath;
+  const bundlesFlagIndex = args.findIndex((arg) => arg === "--bundles" || arg === "-b");
+  if (bundlesFlagIndex === -1) {
+    return true;
+  }
 
-let child;
+  const bundleTargets = args[bundlesFlagIndex + 1];
+  if (!bundleTargets) {
+    return true;
+  }
 
-// 使用 spawn 执行命令
-if (pnpmBin.endsWith("js")) {
-  child = spawn("node", [pnpmBin, ...args], {
-    stdio: "inherit",
-  });
-} else {
-  child = spawn(pnpmBin, args, {
-    stdio: "inherit",
+  return bundleTargets
+    .split(",")
+    .map((target) => target.trim())
+    .some((target) => target === "all" || target === "dmg");
+}
+
+export function getSpawnOptions(env, platform) {
+  const args = ["tauri", "build", ...getTauriBuildArgs(env)];
+  const nextEnv = { ...env };
+
+  // DMG prettification uses Finder AppleScript and breaks in headless shells.
+  if (!nextEnv.CI && shouldForceCiForDmgBuild(args.slice(2), platform)) {
+    nextEnv.CI = "true";
+  }
+
+  return {
+    args,
+    env: nextEnv,
+  };
+}
+
+export function runTauriBuild(env = process.env, platform = process.platform) {
+  const pnpmBin = env.npm_execpath;
+  const { args, env: spawnEnv } = getSpawnOptions(env, platform);
+
+  let child;
+
+  if (pnpmBin.endsWith("js")) {
+    child = spawn("node", [pnpmBin, ...args], {
+      env: spawnEnv,
+      stdio: "inherit",
+    });
+  } else {
+    child = spawn(pnpmBin, args, {
+      env: spawnEnv,
+      stdio: "inherit",
+    });
+  }
+
+  child.on("exit", (code) => {
+    process.exit(code || 0);
   });
 }
 
-// 处理退出
-child.on("exit", (code) => {
-  process.exit(code || 0);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  runTauriBuild();
+}

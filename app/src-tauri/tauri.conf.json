@@ -46,7 +46,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "deb", "dmg", "appimage", "rpm", "app"],
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "category": "Productivity",
     "longDescription": "A simple tool to create topology diagrams.",
     "shortDescription": "Diagram creator",
