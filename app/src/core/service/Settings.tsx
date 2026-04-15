@@ -147,6 +147,7 @@ export const settingsSchema = z.object({
     .union([z.literal("auto"), z.literal("manual"), z.literal("autoByLength")])
     .default("autoByLength"),
   allowAddCycleEdge: z.boolean().default(false),
+  enableDragNodeShakeDetachFromEdge: z.boolean().default(false),
   autoLayoutWhenTreeGenerate: z.boolean().default(true),
   treeGenerateInheritParentColor: z.boolean().default(false),
   textNodeAutoFormatTreeWhenExitEdit: z.boolean().default(false),
@@ -205,6 +206,8 @@ export const settingsSchema = z.object({
   clearHistoryWhenManualSave: z.boolean().default(true),
   soundPitchVariationRange: z.number().min(0).max(1200).int().default(150),
   autoImportTxtFileWhenOpenPrg: z.boolean().default(false),
+  enableAutoEdgeWidth: z.boolean().default(true),
+  showKeyBindHint: z.boolean().default(true),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;

@@ -1,6 +1,7 @@
 import { Project, service } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
 import { MouseLocation } from "@/core/service/controlService/MouseLocation";
+import { KeyBindsUI } from "@/core/service/controlService/shortcutKeysEngine/KeyBindsUI";
 import { StageObject } from "@/core/stage/stageObject/abstract/StageObject";
 import { CubicCatmullRomSplineEdge } from "@/core/stage/stageObject/association/CubicCatmullRomSplineEdge";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
@@ -10,6 +11,7 @@ import { isFrame, isMac } from "@/utils/platform";
 import { Color, mixColors, Vector } from "@graphif/data-structures";
 import { CubicBezierCurve, Rectangle } from "@graphif/shapes";
 import { GlobalMaskRenderer } from "./utilsRenderer/globalMaskRenderer";
+import i18next from "i18next";
 
 /**
  * 渲染器
@@ -93,6 +95,8 @@ export class Renderer {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private renderViewElements(_viewRectangle: Rectangle) {
+    this.project.keyBindHintEngine.update();
+    this.project.keyBindHintEngine.render();
     this.renderSpecialKeys();
     this.renderCenterPointer();
     this.renderDebugDetails();
@@ -212,6 +216,12 @@ export class Renderer {
           this.project.stageStyleManager.currentStyle.SelectRectangleBorder,
         );
       }
+
+      // 只有当移动距离超过阈值时才显示文字提示
+      const moveDistance = this.project.rectangleSelect.getSelectMoveDistance();
+      const minMoveDistance = 10; // 最小移动距离阈值
+      const shouldShowText = moveDistance > minMoveDistance;
+
       const selectMode = this.project.rectangleSelect.getSelectMode();
       if (selectMode === "intersect") {
         this.project.shapeRenderer.renderRect(
@@ -220,6 +230,16 @@ export class Renderer {
           this.project.stageStyleManager.currentStyle.SelectRectangleBorder,
           1,
         );
+        // 碰撞框选的提示
+        if (shouldShowText) {
+          const text = i18next.t("rectangleSelect.intersect", { ns: "renderer", defaultValue: "" });
+          this.project.textRenderer.renderText(
+            text,
+            this.transformWorld2View(rectangle.leftBottom).add(new Vector(20, 10)),
+            10,
+            this.project.stageStyleManager.currentStyle.SelectRectangleBorder,
+          );
+        }
       } else if (selectMode === "contain") {
         this.project.shapeRenderer.renderRect(
           this.transformWorld2View(rectangle),
@@ -233,12 +253,15 @@ export class Renderer {
           1,
         );
         // 完全覆盖框选的提示
-        this.project.textRenderer.renderText(
-          "完全覆盖框选",
-          this.transformWorld2View(rectangle.leftBottom).add(new Vector(20, 10)),
-          10,
-          this.project.stageStyleManager.currentStyle.SelectRectangleBorder,
-        );
+        if (shouldShowText) {
+          const text = i18next.t("rectangleSelect.contain", { ns: "renderer", defaultValue: "" });
+          this.project.textRenderer.renderText(
+            text,
+            this.transformWorld2View(rectangle.leftBottom).add(new Vector(20, 10)),
+            10,
+            this.project.stageStyleManager.currentStyle.SelectRectangleBorder,
+          );
+        }
       }
     }
     // if (Stage.selectMachine.isUsing && Stage.selectMachine.selectingRectangle) {
@@ -663,6 +686,7 @@ export class Renderer {
       return;
     }
 
+    const keySequence = KeyBindsUI.getCurrentKeySequence();
     const detailsData = [
       "调试信息已开启，可在设置中关闭，或快捷键关闭",
       `scale: ${this.project.camera.currentScale}`,
@@ -677,6 +701,7 @@ export class Renderer {
       `edge count: ${this.project.stageManager.getLineEdges().length}`,
       `section count: ${this.project.stageManager.getSections().length}`,
       `pressingKeys: ${this.project.controller.pressingKeysString()}`,
+      `keySequence: ${keySequence || "(无)"}`,
       `鼠标按下情况: ${this.project.controller.isMouseDown}`,
       `框选框: ${JSON.stringify(this.project.rectangleSelect.getRectangle())}`,
       `正在切割: ${this.project.controller.cutting.isUsing}`,

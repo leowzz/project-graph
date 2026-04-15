@@ -41,6 +41,7 @@ globalMenu:
     generateKeyboardLayout: 根据当前快捷键配置生成键盘布局图
     export: 导出
     exportAsSVG: 导出为 SVG
+    exportAsPDF: 导出为 PDF
     exportAll: 导出全部内容
     plainTextType:
       exportAllNodeGraph: 导出 全部的 网状关系
@@ -552,6 +553,11 @@ settings:
     description: |
       开启后，节点之间可以添加自环，即节点与自身相连，用于状态机绘制
       默认关闭，因为不常用，容易误触发
+  enableDragNodeShakeDetachFromEdge:
+    title: 允许拖拽摇晃从连线中脱离节点
+    description: |
+      开启后，拖拽单个节点时快速摇晃鼠标，可自动将节点从连线结构中脱离
+      默认关闭，防止误触发
   enableDragEdgeRotateStructure:
     title: 允许拖拽连线旋转结构
     description: |
@@ -944,7 +950,22 @@ settings:
   autoImportTxtFileWhenOpenPrg:
     title: 打开PRG文件时自动导入同名TXT文件
     description: 启用后，打开PRG文件时会自动导入同一文件夹下同名TXT文件的内容，并以文本节点形式添加到舞台左下角。
+  enableAutoEdgeWidth:
+    title: 自动调整框之间连线的粗细
+    description: |
+      开启后，连接两个框（Section）之间的连线会根据框的大小自动调整粗细。
+      关闭后，所有连线将使用固定粗细。
+  showKeyBindHint:
+    title: 按下快捷键修饰键后显示匹配的快捷键提示
+    description: |
+      开启后，当按下 Ctrl/Alt/Shift/Win（Windows）或 ⌘/⌥/⇧/⌃（Mac）等修饰键时，会显示匹配的快捷键提示。
+      按住修饰键不放可查看第一页快捷键，松开后再次按下可翻页查看更多。
 
+
+renderer:
+  rectangleSelect:
+    intersect: 碰撞框选
+    contain: 完全覆盖框选
 
 effects:
   CircleChangeRadiusEffect:
@@ -1770,3 +1791,12 @@ keyBinds:
 
 sounds:
   soundEnabled: 音效开关
+
+common:
+  editModeHint:
+    startEditTitle: 进入编辑模式
+    doubleClick: 双击
+    or: 或
+    editingMode: 正在编辑模式
+    lineBreak: 换行
+    exitEdit: 退出编辑模式

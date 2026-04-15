@@ -186,6 +186,12 @@ export class ReferenceBlockNode extends ConnectableEntity implements ResizeAble 
     if (this.state !== "success") {
       return;
     }
+    const currentFileNameByPath = PathString.getFileNameFromPath(this.project.uri.path);
+    const currentFileNameByFsPath = PathString.getFileNameFromPath(this.project.uri.fsPath);
+    if (currentFileNameByPath === this.fileName || currentFileNameByFsPath === this.fileName) {
+      this.focusSectionInProject(this.project);
+      return;
+    }
     const recentFiles = await RecentFileManager.getRecentFiles();
     const file = recentFiles.find(
       (file) =>
@@ -200,6 +206,10 @@ export class ReferenceBlockNode extends ConnectableEntity implements ResizeAble 
     if (!project) {
       return;
     }
+    this.focusSectionInProject(project);
+  }
+
+  private focusSectionInProject(project: Project) {
     const targetSection = project.stage
       .filter((obj) => obj instanceof Section)
       .find((section) => section.text === this.sectionName);
@@ -208,7 +218,12 @@ export class ReferenceBlockNode extends ConnectableEntity implements ResizeAble 
     }
     const center = targetSection.collisionBox.getRectangle().center;
     project.camera.location = center;
-    project.effects.addEffect(RectangleLittleNoteEffect.fromUtilsSlowNote(targetSection));
+    project.effects.addEffect(
+      RectangleLittleNoteEffect.fromUtilsSlowNote(
+        targetSection,
+        project.stageStyleManager.currentStyle.effects.successShadow,
+      ),
+    );
   }
 
   /**

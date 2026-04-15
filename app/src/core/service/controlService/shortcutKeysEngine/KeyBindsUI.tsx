@@ -1,11 +1,18 @@
-import { matchEmacsKeyPress, transEmacsKeyWinToMac } from "@/utils/emacs";
+import { formatEmacsKey, matchEmacsKeyPress, transEmacsKeyWinToMac } from "@/utils/emacs";
 import { isMac } from "@/utils/platform";
 import { createStore } from "@/utils/store";
 import { Queue } from "@graphif/data-structures";
 import { allKeyBinds } from "./shortcutKeysRegister";
 import { activeProjectAtom, store } from "@/state";
-import { Project } from "@/core/Project";
+import type { Project } from "@/core/Project";
 
+export interface UIKeyBind {
+  id: string;
+  key: string;
+  isEnabled: boolean;
+  onPress: (project?: Project) => void;
+  onRelease?: (project?: Project) => void;
+}
 /**
  * UI级别的快捷键管理
  */
@@ -20,15 +27,57 @@ export namespace KeyBindsUI {
     userEventQueue.enqueue(event);
   }
 
-  interface UIKeyBind {
-    id: string;
-    key: string;
-    isEnabled: boolean;
-    onPress: (project?: Project) => void;
-    onRelease?: (project?: Project) => void;
+  let allUIKeyBinds: UIKeyBind[] = [];
+
+  /**
+   * 获取所有已注册的UI快捷键
+   */
+  export function getAllUIKeyBinds(): UIKeyBind[] {
+    return allUIKeyBinds;
   }
 
-  let allUIKeyBinds: UIKeyBind[] = [];
+  /**
+   * 获取指定ID的快捷键
+   */
+  export function getUIKeyBind(id: string): UIKeyBind | undefined {
+    return allUIKeyBinds.find((kb) => kb.id === id);
+  }
+
+  // 快捷键变化监听器
+  const keyBindChangeListeners = new Map<string, Set<(keyBind: UIKeyBind) => void>>();
+
+  /**
+   * 监听指定快捷键的变化
+   * @param id 快捷键ID
+   * @param callback 回调函数
+   * @returns 取消监听的函数
+   */
+  export function onKeyBindChange(id: string, callback: (keyBind: UIKeyBind) => void): () => void {
+    if (!keyBindChangeListeners.has(id)) {
+      keyBindChangeListeners.set(id, new Set());
+    }
+    keyBindChangeListeners.get(id)!.add(callback);
+
+    // 立即返回当前值
+    const currentKeyBind = getUIKeyBind(id);
+    if (currentKeyBind) {
+      callback(currentKeyBind);
+    }
+
+    return () => {
+      keyBindChangeListeners.get(id)?.delete(callback);
+    };
+  }
+
+  /**
+   * 通知快捷键变化
+   */
+  function notifyKeyBindChange(id: string, keyBind: UIKeyBind) {
+    const listeners = keyBindChangeListeners.get(id);
+    if (listeners) {
+      listeners.forEach((callback) => callback(keyBind));
+    }
+  }
 
   const registerSet = new Set<string>();
 
@@ -72,7 +121,7 @@ export namespace KeyBindsUI {
    * 只会在软件启动的时候注册一次
    * 其他情况下，只会在修改快捷键的时候进行重新修改值
    */
-  export async function registerOneUIKeyBind(
+  export function registerOneUIKeyBind(
     id: string,
     key: string,
     isEnabled: boolean = true,
@@ -85,7 +134,11 @@ export namespace KeyBindsUI {
       return;
     }
     registerSet.add(id);
-    allUIKeyBinds.push({ id, key, isEnabled, onPress, onRelease });
+    const keyBind: UIKeyBind = { id, key, isEnabled, onPress, onRelease };
+    allUIKeyBinds.push(keyBind);
+
+    // 通知监听器有新的快捷键注册
+    notifyKeyBindChange(id, keyBind);
   }
 
   /**
@@ -94,12 +147,19 @@ export namespace KeyBindsUI {
    * @param key
    */
   export async function changeOneUIKeyBind(id: string, key: string) {
+    let updatedKeyBind: UIKeyBind | undefined;
     allUIKeyBinds = allUIKeyBinds.map((it) => {
       if (it.id === id) {
-        return { ...it, key };
+        updatedKeyBind = { ...it, key };
+        return updatedKeyBind;
       }
       return it;
     });
+
+    // 通知监听器快捷键已更改
+    if (updatedKeyBind) {
+      notifyKeyBindChange(id, updatedKeyBind);
+    }
 
     const store = await createStore("keybinds2.json");
     const currentConfig = await store.get<any>(id);
@@ -335,5 +395,16 @@ export namespace KeyBindsUI {
   function onWheel(event: WheelEvent) {
     enqueue(event);
     check();
+  }
+
+  /**
+   * 获取当前按键序列的字符串表示
+   * 用于在debug模式下显示当前已按下的按键序列
+   */
+  export function getCurrentKeySequence(): string {
+    if (userEventQueue.length === 0) {
+      return "";
+    }
+    return userEventQueue.arrayList.map((event) => formatEmacsKey(event)).join(" ");
   }
 }

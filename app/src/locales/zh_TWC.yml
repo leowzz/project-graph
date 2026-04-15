@@ -590,6 +590,11 @@ settings:
     description: '開啟後，節點之間可以添加自環，即節點與自身相連，用於狀態機繪製
 
       預設關閉，因為不常用，容易誤觸發'
+  enableDragNodeShakeDetachFromEdge:
+    title: 允許拖曳搖晃從連線中脫離節點
+    description: '開啟後，拖曳單個節點時快速搖晃滑鼠，可自動將節點從連線結構中脫離
+
+      預設關閉，防止誤觸發'
   enableDragEdgeRotateStructure:
     title: 允許拖曳連線旋轉結構
     description: '開啟後，可以透過拖曳選取的連線來旋轉節點結構
@@ -954,6 +959,22 @@ settings:
   autoImportTxtFileWhenOpenPrg:
     title: 開啟 PRG 檔案時自動匯入同名 TXT 檔案
     description: 啟用後，開啟 PRG 檔案時會自動匯入同一資料夾下同名 TXT 檔案的內容，並以文字節點形式新增到舞台左下角。
+  enableAutoEdgeWidth:
+    title: 自動調整框之間連線的粗細
+    description: |
+      開啟後，連接兩個框（Section）之間的連線會根據框的大小自動調整粗細。
+      關閉後，所有連線將使用固定粗細。
+  showKeyBindHint:
+    title: 按下快捷鍵修飾鍵後顯示匹配的快捷鍵提示
+    description: |
+      開啟後，當按下 Ctrl/Alt/Shift/Win（Windows）或 ⌘/⌥/⇧/⌃（Mac）等修飾鍵時，會顯示匹配的快捷鍵提示。
+      按住修飾鍵不放可查看第一頁快捷鍵，鬆開後再次按下可翻頁查看更多。
+
+renderer:
+  rectangleSelect:
+    intersect: 碰撞框選
+    contain: 完全覆蓋框選
+
 effects:
   CircleChangeRadiusEffect:
     title: 圆形变换半径效果
@@ -1698,3 +1719,12 @@ keyBinds:
     description: 將窗口大小設置為設置中配置的迷你窗口寬度和高度。
 sounds:
   soundEnabled: 音效開關
+
+common:
+  editModeHint:
+    startEditTitle: 進入編輯模式
+    doubleClick: 雙擊
+    or: 或
+    editingMode: 正在編輯模式
+    lineBreak: 換行
+    exitEdit: 退出編輯模式

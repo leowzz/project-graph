@@ -412,6 +412,11 @@ settings:
     description: |
       When enabled, nodes can have self-loops, i.e., connections to themselves, which is useful for state machine diagrams.
       This is disabled by default because it is not commonly used and can be easily triggered by mistake.
+  enableDragNodeShakeDetachFromEdge:
+    title: Enable Drag Node Shake to Detach from Edge
+    description: |
+      When enabled, quickly shaking the mouse while dragging a single node will automatically detach it from the edge structure.
+      Disabled by default to prevent accidental triggers.
   enableDragEdgeRotateStructure:
     title: Enable Drag Edge to Rotate Structure
     description: |
@@ -840,6 +845,21 @@ settings:
   autoImportTxtFileWhenOpenPrg:
     title: Auto Import TXT File When Opening PRG
     description: When enabled, automatically imports content from a TXT file with the same name as the PRG file when opening it. The content will be added as text nodes at the bottom left corner of the stage.
+  enableAutoEdgeWidth:
+    title: Auto Adjust Edge Width Between Sections
+    description: |
+      When enabled, edges connecting two sections will automatically adjust their thickness based on the section size.
+      When disabled, all edges will use a fixed thickness.
+  showKeyBindHint:
+    title: Show Key Bind Hints When Pressing Modifier Keys
+    description: |
+      When enabled, matching keyboard shortcut hints will be displayed when pressing modifier keys (Ctrl/Alt/Shift/Win on Windows or ⌘/⌥/⇧/⌃ on Mac).
+      Hold the modifier key to view the first page of shortcuts, release and press again to page through more.
+renderer:
+  rectangleSelect:
+    intersect: Intersection Select
+    contain: Contain Select
+
 plugins:
   welcome:
     title: Welcome to the Plugin System
@@ -870,6 +890,7 @@ globalMenu:
     generateKeyboardLayout: Generate Keyboard Layout from Current Keybindings
     export: Export
     exportAsSVG: Export as SVG
+    exportAsPDF: Export as PDF
     exportAll: Export All Content
     plainTextType:
       exportAllNodeGraph: Export All Node Graph as Plain Text
@@ -1257,6 +1278,26 @@ keyBinds:
       When pressed, instantly grow a sibling node and place it below the currently selected node.
       Automatically arrange the entire node tree structure to ensure it forms a downward tree structure.
       Before using this feature, ensure a node is selected and that it has a parent node.
+  setNodeTreeDirectionUp:
+    title: Set Tree Growth Direction to Up
+    description: |
+      Press this shortcut after selecting a node to set the tree growth direction to upward.
+      New child nodes will be placed above the current node.
+  setNodeTreeDirectionDown:
+    title: Set Tree Growth Direction to Down
+    description: |
+      Press this shortcut after selecting a node to set the tree growth direction to downward.
+      New child nodes will be placed below the current node.
+  setNodeTreeDirectionLeft:
+    title: Set Tree Growth Direction to Left
+    description: |
+      Press this shortcut after selecting a node to set the tree growth direction to leftward.
+      New child nodes will be placed to the left of the current node.
+  setNodeTreeDirectionRight:
+    title: Set Tree Growth Direction to Right
+    description: |
+      Press this shortcut after selecting a node to set the tree growth direction to rightward.
+      New child nodes will be placed to the right of the current node.
   masterBrakeControl:
     title: Master Brake Control for Camera Movement
     description: |
@@ -1671,3 +1712,12 @@ visualSettingsGroup:
 
 sounds:
   soundEnabled: Sound Effect Switch
+
+common:
+  editModeHint:
+    startEditTitle: Enter Edit Mode
+    doubleClick: Double-click
+    or: or
+    editingMode: Editing Mode
+    lineBreak: New Line
+    exitEdit: Exit Edit Mode

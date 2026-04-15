@@ -5,6 +5,7 @@ import {
   MenubarItem,
   MenubarMenu,
   MenubarSeparator,
+  MenubarShortcut,
   MenubarSub,
   MenubarSubContent,
   MenubarSubTrigger,
@@ -135,7 +136,7 @@ import { LineEdge } from "../stage/stageObject/association/LineEdge";
 import { CollisionBox } from "../stage/stageObject/collisionBox/collisionBox";
 import { TextNode } from "../stage/stageObject/entity/TextNode";
 import { AssetsRepository } from "./AssetsRepository";
-import { KeyBindsUI } from "./controlService/shortcutKeysEngine/KeyBindsUI";
+import { useKeyBind } from "./controlService/shortcutKeysEngine/useKeyBind";
 import { RecentFileManager } from "./dataFileService/RecentFileManager";
 import { generateKeyboardLayout } from "./dataGenerateService/generateFromFolderEngine/GenerateFromFolderEngine";
 import { DragFileIntoStageEngine } from "./dataManageService/dragFileIntoStageEngine/dragFileIntoStageEngine";
@@ -143,6 +144,7 @@ import { FeatureFlags } from "./FeatureFlags";
 import { Settings } from "./Settings";
 import { SubWindow } from "./SubWindow";
 import { Telemetry } from "./Telemetry";
+import { KeyBindsUI } from "./controlService/shortcutKeysEngine/KeyBindsUI";
 
 const Content = MenubarContent;
 const Item = MenubarItem;
@@ -163,6 +165,40 @@ export function GlobalMenu() {
   const [isDev, setIsDev] = useAtom(isDevAtom);
   const subWindows = SubWindow.use();
   const { t } = useTranslation("globalMenu");
+
+  // 导出功能快捷键
+  const exportSelectedTreeStructureToPlainTextKey = useKeyBind("exportSelectedTreeStructureToPlainText");
+  const exportSelectedTreeStructureToMarkdownKey = useKeyBind("exportSelectedTreeStructureToMarkdown");
+  const exportSelectedNetStructureToPlainTextKey = useKeyBind("exportSelectedNetStructureToPlainText");
+  const exportSelectedNetStructureToMermaidKey = useKeyBind("exportSelectedNetStructureToMermaid");
+  // 文件操作快捷键
+  const newDraftKey = useKeyBind("newDraft");
+  const openFileKey = useKeyBind("openFile");
+  const saveFileKey = useKeyBind("saveFile");
+  // 操作快捷键
+  const searchTextKey = useKeyBind("searchText");
+  const undoKey = useKeyBind("undo");
+  const redoKey = useKeyBind("redo");
+  const closeAllSubWindowsKey = useKeyBind("closeAllSubWindows");
+  // 其他快捷键
+  const clickAppMenuRecentFileButtonKey = useKeyBind("clickAppMenuRecentFileButton");
+  const clickTagPanelButtonKey = useKeyBind("clickTagPanelButton");
+  const clickAppMenuSettingsButtonKey = useKeyBind("clickAppMenuSettingsButton");
+  // 视野快捷键
+  const resetViewKey = useKeyBind("resetView");
+  const resetCameraScaleKey = useKeyBind("resetCameraScale");
+  const masterBrakeControlKey = useKeyBind("masterBrakeControl");
+  // 窗口/视图快捷键
+  const toggleFullscreenKey = useKeyBind("toggleFullscreen");
+  const checkoutClassroomModeKey = useKeyBind("checkoutClassroomMode");
+  const checkoutProtectPrivacyKey = useKeyBind("checkoutProtectPrivacy");
+  const switchDebugShowKey = useKeyBind("switchDebugShow");
+  // 舞台透明度快捷键
+  const checkoutWindowOpacityModeKey = useKeyBind("checkoutWindowOpacityMode");
+  const windowOpacityAlphaIncreaseKey = useKeyBind("windowOpacityAlphaIncrease");
+  const windowOpacityAlphaDecreaseKey = useKeyBind("windowOpacityAlphaDecrease");
+  // 狙击镜快捷键
+  const switchStealthModeKey = useKeyBind("switchStealthMode");
 
   useEffect(() => {
     refresh();
@@ -195,6 +231,7 @@ export function GlobalMenu() {
           <Item onClick={() => onNewDraft()}>
             <FilePlus />
             {t("file.new")}
+            {newDraftKey && <MenubarShortcut>{newDraftKey}</MenubarShortcut>}
           </Item>
           <Item
             disabled={!activeProject || activeProject.isDraft}
@@ -213,6 +250,7 @@ export function GlobalMenu() {
           >
             <FolderOpen />
             {t("file.open")} （.prg / .json）
+            {openFileKey && <MenubarShortcut>{openFileKey}</MenubarShortcut>}
           </Item>
           <Item
             disabled={!activeProject || activeProject.isDraft}
@@ -273,6 +311,7 @@ export function GlobalMenu() {
           >
             <LayoutGrid />
             查看全部历史文件
+            {clickAppMenuRecentFileButtonKey && <MenubarShortcut>{clickAppMenuRecentFileButtonKey}</MenubarShortcut>}
           </Item>
           <Separator />
           <Item
@@ -283,6 +322,7 @@ export function GlobalMenu() {
           >
             <Save />
             {t("file.save")}
+            {saveFileKey && <MenubarShortcut>{saveFileKey}</MenubarShortcut>}
           </Item>
           <Item
             disabled={!activeProject}
@@ -552,6 +592,9 @@ export function GlobalMenu() {
                   >
                     <VectorSquare />
                     {t("file.plainTextType.exportSelectedNodeGraph")}
+                    {exportSelectedNetStructureToPlainTextKey && (
+                      <MenubarShortcut>{exportSelectedNetStructureToPlainTextKey}</MenubarShortcut>
+                    )}
                   </Item>
                   {/* 导出 选中 树状关系 （纯文本缩进） */}
                   <Item
@@ -565,6 +608,9 @@ export function GlobalMenu() {
                   >
                     <Network />
                     {t("file.plainTextType.exportSelectedNodeTree")}
+                    {exportSelectedTreeStructureToPlainTextKey && (
+                      <MenubarShortcut>{exportSelectedTreeStructureToPlainTextKey}</MenubarShortcut>
+                    )}
                   </Item>
                   {/* 导出 选中 树状关系 （Markdown格式） */}
                   <Item
@@ -578,6 +624,9 @@ export function GlobalMenu() {
                   >
                     <Network />
                     {t("file.plainTextType.exportSelectedNodeTreeMarkdown")}
+                    {exportSelectedTreeStructureToMarkdownKey && (
+                      <MenubarShortcut>{exportSelectedTreeStructureToMarkdownKey}</MenubarShortcut>
+                    )}
                   </Item>
                   {/* 导出 选中 网状嵌套关系 （mermaid格式） */}
                   <Item
@@ -589,6 +638,9 @@ export function GlobalMenu() {
                   >
                     <SquareSquare />
                     {t("file.plainTextType.exportSelectedNodeGraphMermaid")}
+                    {exportSelectedNetStructureToMermaidKey && (
+                      <MenubarShortcut>{exportSelectedNetStructureToMermaidKey}</MenubarShortcut>
+                    )}
                   </Item>
                 </SubContent>
               </Sub>
@@ -612,6 +664,7 @@ export function GlobalMenu() {
           >
             <Tag />
             {t("file.tags")}
+            {clickTagPanelButtonKey && <MenubarShortcut>{clickTagPanelButtonKey}</MenubarShortcut>}
           </Item>
 
           {/* 引用管理器 */}
@@ -660,6 +713,7 @@ export function GlobalMenu() {
           >
             <SquareDashedMousePointer />
             {t("view.resetViewSelected")}
+            {resetViewKey && <MenubarShortcut>{resetViewKey}</MenubarShortcut>}
           </Item>
           <Item
             onClick={() => {
@@ -668,6 +722,7 @@ export function GlobalMenu() {
           >
             <Scaling />
             {t("view.resetViewScale")}
+            {resetCameraScaleKey && <MenubarShortcut>{resetCameraScaleKey}</MenubarShortcut>}
           </Item>
           <Item
             onClick={() => {
@@ -770,6 +825,7 @@ export function GlobalMenu() {
           >
             <OctagonX />
             停止漂移
+            {masterBrakeControlKey && <MenubarShortcut>{masterBrakeControlKey}</MenubarShortcut>}
           </Item>
           <Item
             onClick={() => {
@@ -802,6 +858,7 @@ export function GlobalMenu() {
           >
             <Search />
             {t("actions.search")}
+            {searchTextKey && <MenubarShortcut>{searchTextKey}</MenubarShortcut>}
           </Item>
           <Item>
             <RefreshCcwDot />
@@ -814,6 +871,7 @@ export function GlobalMenu() {
           >
             <Undo />
             {t("actions.undo")}
+            {undoKey && <MenubarShortcut>{undoKey}</MenubarShortcut>}
           </Item>
           <Item
             onClick={() => {
@@ -822,6 +880,7 @@ export function GlobalMenu() {
           >
             <Redo />
             {t("actions.redo")}
+            {redoKey && <MenubarShortcut>{redoKey}</MenubarShortcut>}
           </Item>
           <Item
             onClick={() => {
@@ -839,6 +898,7 @@ export function GlobalMenu() {
           >
             <X />
             关闭所有子窗口
+            {closeAllSubWindowsKey && <MenubarShortcut>{closeAllSubWindowsKey}</MenubarShortcut>}
           </Item>
           {/* 生成子菜单 */}
           <Sub>
@@ -927,6 +987,7 @@ export function GlobalMenu() {
           <Item onClick={() => SettingsWindow.open("settings")}>
             <SettingsIcon />
             {t("settings.title")}
+            {clickAppMenuSettingsButtonKey && <MenubarShortcut>{clickAppMenuSettingsButtonKey}</MenubarShortcut>}
           </Item>
           <Sub>
             <SubTrigger>
@@ -1073,6 +1134,7 @@ export function GlobalMenu() {
           >
             <Fullscreen />
             {t("window.fullscreen")}
+            {toggleFullscreenKey && <MenubarShortcut>{toggleFullscreenKey}</MenubarShortcut>}
           </Item>
           <Item
             disabled={!activeProject}
@@ -1090,6 +1152,7 @@ export function GlobalMenu() {
             ) : (
               "请先打开工程文件才能使用此功能"
             )}
+            {checkoutClassroomModeKey && <MenubarShortcut>{checkoutClassroomModeKey}</MenubarShortcut>}
           </Item>
           <Item
             disabled={!activeProject}
@@ -1104,6 +1167,7 @@ export function GlobalMenu() {
           >
             <VenetianMask />
             {activeProject ? "进入/退出 隐私模式" : "请先打开工程文件才能使用此功能"}
+            {checkoutProtectPrivacyKey && <MenubarShortcut>{checkoutProtectPrivacyKey}</MenubarShortcut>}
           </Item>
           <Sub>
             <SubTrigger>
@@ -1163,6 +1227,7 @@ export function GlobalMenu() {
               >
                 <PictureInPicture2 />
                 {activeProject ? <span>开启/关闭舞台背景颜色透明</span> : "请先打开工程文件才能使用此功能"}
+                {checkoutWindowOpacityModeKey && <MenubarShortcut>{checkoutWindowOpacityModeKey}</MenubarShortcut>}
               </Item>
               <Item
                 disabled={!activeProject}
@@ -1172,6 +1237,7 @@ export function GlobalMenu() {
               >
                 <PictureInPicture2 />
                 {activeProject ? <span>降低舞台背景不透明度</span> : "请先打开工程文件才能使用此功能"}
+                {windowOpacityAlphaDecreaseKey && <MenubarShortcut>{windowOpacityAlphaDecreaseKey}</MenubarShortcut>}
               </Item>
               <Item
                 disabled={!activeProject}
@@ -1181,6 +1247,7 @@ export function GlobalMenu() {
               >
                 <PictureInPicture2 />
                 {activeProject ? <span>提高舞台背景不透明度</span> : "请先打开工程文件才能使用此功能"}
+                {windowOpacityAlphaIncreaseKey && <MenubarShortcut>{windowOpacityAlphaIncreaseKey}</MenubarShortcut>}
               </Item>
             </SubContent>
           </Sub>
@@ -1192,6 +1259,7 @@ export function GlobalMenu() {
           >
             <Bug />
             {activeProject ? <span>开启/关闭Debug 模式</span> : "请先打开工程文件才能使用此功能"}
+            {switchDebugShowKey && <MenubarShortcut>{switchDebugShowKey}</MenubarShortcut>}
           </Item>
           <Sub>
             <SubTrigger>
@@ -1207,6 +1275,7 @@ export function GlobalMenu() {
               >
                 <CircleDot />
                 {activeProject ? <span>开启/关闭狙击镜</span> : "请先打开工程文件才能使用此功能"}
+                {switchStealthModeKey && <MenubarShortcut>{switchStealthModeKey}</MenubarShortcut>}
               </Item>
               <Item
                 disabled={!activeProject}
