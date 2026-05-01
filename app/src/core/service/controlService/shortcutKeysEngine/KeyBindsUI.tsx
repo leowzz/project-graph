@@ -11,7 +11,11 @@ import { isMac } from "@/utils/platform";
 import { createStore } from "@/utils/store";
 import { Queue } from "@graphif/data-structures";
 import { proxy } from "comlink";
+import type { ForwardRefExoticComponent, RefAttributes } from "react";
+import type { LucideProps } from "lucide-react";
 import { allKeyBinds, type KeyBindWhen } from "./shortcutKeysRegister";
+
+export type KeyBindIcon = ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>;
 
 export interface UIKeyBind {
   id: string;
@@ -19,6 +23,7 @@ export interface UIKeyBind {
   isEnabled: boolean;
   onPress: (project?: Project) => void;
   when: KeyBindWhen;
+  icon?: KeyBindIcon;
   // 是否是持续型快捷键
   isContinuous?: boolean;
   onRelease?: (project?: Project) => void;
@@ -132,6 +137,7 @@ export namespace KeyBindsUI {
         keybind.onRelease,
         keybind.isContinuous,
         keybind.when,
+        keybind.icon,
       );
     }
     await store.save();
@@ -149,12 +155,13 @@ export namespace KeyBindsUI {
     onRelease?: (project?: Project) => void,
     isContinuous?: boolean,
     when: KeyBindWhen = () => true,
+    icon?: KeyBindIcon,
   ) {
     if (registerSet.has(id)) {
       // 检查是否已经是同 ID 的快捷键，如果是，则更新它（用于扩展重新认领逻辑）
       const index = allUIKeyBinds.findIndex((kb) => kb.id === id);
       if (index !== -1) {
-        allUIKeyBinds[index] = { id, key, isEnabled, onPress, onRelease, when, isContinuous };
+        allUIKeyBinds[index] = { id, key, isEnabled, onPress, onRelease, when, isContinuous, icon };
         notifyKeyBindChange(id, allUIKeyBinds[index]);
         return;
       }
@@ -162,7 +169,7 @@ export namespace KeyBindsUI {
       return;
     }
     registerSet.add(id);
-    const keyBind: UIKeyBind = { id, key, isEnabled, onPress, onRelease, when, isContinuous };
+    const keyBind: UIKeyBind = { id, key, isEnabled, onPress, onRelease, when, isContinuous, icon };
     allUIKeyBinds.push(keyBind);
 
     // 通知监听器有新的快捷键注册

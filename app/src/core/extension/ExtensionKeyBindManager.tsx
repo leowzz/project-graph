@@ -1,7 +1,16 @@
 import { transEmacsKeyWinToMac } from "@/utils/emacs";
 import { isMac } from "@/utils/platform";
 import { createStore } from "@/utils/store";
-import { KeyBindsUI } from "../service/controlService/shortcutKeysEngine/KeyBindsUI";
+import { KeyBindsUI, type KeyBindIcon } from "../service/controlService/shortcutKeysEngine/KeyBindsUI";
+
+export interface ExtensionKeyBindRegisterOptions {
+  id: string;
+  defaultKey: string;
+  onPress: () => void;
+  onRelease?: () => void;
+  isContinuous?: boolean;
+  icon?: KeyBindIcon;
+}
 
 /**
  * 专门管理扩展注入的快捷键
@@ -10,21 +19,10 @@ export namespace ExtensionKeyBindManager {
   /**
    * 注册扩展快捷键
    * @param extensionId 扩展ID
-   * @param id 快捷键ID（在扩展内部唯一）
-   * @param defaultKey 默认按键
-   * @param onPress 按下回调
-   * @param onRelease 释放回调
-   * @param isContinuous 是否持续触发
+   * @param options 快捷键注册选项
    */
-  export async function register(
-    extensionId: string,
-    id: string,
-    defaultKey: string,
-    onPress: () => void,
-    onRelease?: () => void,
-    isContinuous?: boolean,
-  ) {
-    const fullId = `ext:${extensionId}:${id}`;
+  export async function register(extensionId: string, options: ExtensionKeyBindRegisterOptions) {
+    const fullId = `ext:${extensionId}:${options.id}`;
     const store = await createStore("keybinds2.json");
 
     // 尝试从存储中获取用户配置
@@ -33,7 +31,7 @@ export namespace ExtensionKeyBindManager {
     let isEnabled: boolean;
 
     if (!savedData) {
-      key = isMac ? transEmacsKeyWinToMac(defaultKey) : defaultKey;
+      key = isMac ? transEmacsKeyWinToMac(options.defaultKey) : options.defaultKey;
       isEnabled = true;
       // 首次注册保存到配置中，这样设置页面就能看到了
       await store.set(fullId, { key, isEnabled });
@@ -43,7 +41,16 @@ export namespace ExtensionKeyBindManager {
       isEnabled = savedData.isEnabled !== false;
     }
 
-    KeyBindsUI.registerOneUIKeyBind(fullId, key, isEnabled, onPress, onRelease, isContinuous);
+    KeyBindsUI.registerOneUIKeyBind(
+      fullId,
+      key,
+      isEnabled,
+      options.onPress,
+      options.onRelease,
+      options.isContinuous,
+      undefined,
+      options.icon,
+    );
   }
 
   /**

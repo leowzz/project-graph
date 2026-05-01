@@ -1,6 +1,8 @@
 import { activeTabAtom, store } from "@/state";
 import { deserialize } from "@graphif/serializer";
 import * as Comlink from "comlink";
+import { icons, LucideProps } from "lucide-react";
+import { ForwardRefExoticComponent, RefAttributes } from "react";
 
 interface ProxyArrayPayload {
   __type: "PROXY_ARRAY";
@@ -59,5 +61,17 @@ export function setupComlink(): void {
     serialize: (v) => [v, []],
     deserialize: (v: { $rpc?: { deserializeWithProject?: boolean }; _: string }) =>
       deserialize(v, v.$rpc?.deserializeWithProject ? store.get(activeTabAtom) : undefined),
+  });
+
+  Comlink.transferHandlers.set("LUCIDE_ICON", {
+    canHandle: (v): v is { $lucide: string } => typeof v === "object" && v !== null && "displayName" in v,
+    serialize: (v: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>) => [
+      { $lucide: v.displayName?.replace(/^Lucide|Icon$/, "") || "" },
+      [],
+    ],
+    deserialize: (v: { $lucide: string }) =>
+      icons[v.$lucide as keyof typeof icons] as unknown as ForwardRefExoticComponent<
+        Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>
+      >,
   });
 }

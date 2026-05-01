@@ -1,5 +1,6 @@
 import { Dialog } from "@/components/ui/dialog";
 import { Project } from "@/core/Project";
+import { KeyBindIcon } from "@/core/service/controlService/shortcutKeysEngine/KeyBindsUI";
 import { Settings } from "@/core/service/Settings";
 import { activeTabAtom, store, tabsAtom } from "@/state";
 import { fetch } from "@tauri-apps/plugin-http";
@@ -90,12 +91,20 @@ export function extensionHostApiFactory(extension: Extension) {
     //region 快捷键
     async keybinds_register(
       id: string,
+      icon: KeyBindIcon,
       defaultKey: string,
       onPress: () => void,
       onRelease?: () => void,
       isContinuous?: boolean,
     ) {
-      return ExtensionKeyBindManager.register(extensionId, id, defaultKey, onPress, onRelease, isContinuous);
+      return ExtensionKeyBindManager.register(extensionId, {
+        id,
+        icon,
+        defaultKey,
+        onPress,
+        onRelease,
+        isContinuous,
+      });
     },
     async keybinds_unregisterAll() {
       return ExtensionKeyBindManager.unregisterAll(extensionId);

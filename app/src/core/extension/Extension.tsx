@@ -289,6 +289,10 @@ export class Extension extends Tab {
 
                       return extensionKeyBinds.map((kb) => {
                         const getKeyBindIcon = () => {
+                          if (kb.icon) {
+                            const IconComponent = kb.icon;
+                            return <IconComponent />;
+                          }
                           if (!kb.key || kb.key.trim() === "") return <Dot />;
                           if (!kb.isEnabled) return <KeyboardOff />;
                           if (kb.isContinuous) return <SquareAsterisk />;

@@ -40,4 +40,10 @@ export function setupComlink() {
     serialize: (v) => [v, []],
     deserialize: (v) => v,
   });
+
+  Comlink.transferHandlers.set("LUCIDE_ICON", {
+    canHandle: (v) => v !== null && typeof v === "object" && "$lucide" in v && typeof v.$lucide === "string",
+    serialize: (v) => [v, []],
+    deserialize: (v) => v,
+  });
 }
