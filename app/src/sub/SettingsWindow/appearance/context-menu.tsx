@@ -40,12 +40,14 @@ import {
   Trash2,
   Type,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 export default function ContextMenuPage() {
   const [config, setConfig] = Settings.use("contextMenuConfig");
   const [searchTerm, setSearchTerm] = useState("");
+  const { t } = useTranslation("keyBinds");
   // Now tracks path instead of duplicating item. path is sufficient to find the item in the tree.
   const [selectedPath, setSelectedPath] = useState<number[] | null>(null);
 
@@ -73,9 +75,15 @@ export default function ContextMenuPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const getKeyBindTitle = useCallback((id: string) => t(`${id}.title`, { defaultValue: id }), [t]);
+
   const filteredKeyBinds = useMemo(() => {
-    return allKeyBinds.filter((kb) => kb.id.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [allKeyBinds, searchTerm]);
+    const normalizedSearchTerm = searchTerm.toLowerCase();
+    return allKeyBinds.filter((kb) => {
+      const title = getKeyBindTitle(kb.id).toLowerCase();
+      return kb.id.toLowerCase().includes(normalizedSearchTerm) || title.includes(normalizedSearchTerm);
+    });
+  }, [allKeyBinds, getKeyBindTitle, searchTerm]);
 
   const saveConfig = (newConfig: any) => {
     setConfig([...newConfig] as any);
@@ -202,7 +210,7 @@ export default function ContextMenuPage() {
   const addItem = (id: string) => {
     const newItem = { type: "item", id, visible: true };
     saveConfig([...config, newItem]);
-    toast.success(`已添加: ${id}`);
+    toast.success(`已添加: ${getKeyBindTitle(id)}`);
   };
 
   const addGroup = () => {
@@ -255,6 +263,7 @@ export default function ContextMenuPage() {
                 item={item}
                 path={currentPath}
                 isSelected={isSelected}
+                getKeyBindTitle={getKeyBindTitle}
                 onMove={moveItem}
                 onDelete={deleteItem}
                 onSelect={() => setSelectedPath(currentPath)}
@@ -332,7 +341,7 @@ export default function ContextMenuPage() {
                   onClick={() => addItem(kb.id)}
                 >
                   <div className="flex flex-col overflow-hidden">
-                    <span className="truncate text-xs font-medium">{kb.id}</span>
+                    <span className="truncate text-xs font-medium">{getKeyBindTitle(kb.id)}</span>
                     <span className="text-muted-foreground text-[10px]">{kb.key}</span>
                   </div>
                   <Plus className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
@@ -366,10 +375,12 @@ export default function ContextMenuPage() {
               {selectedItem ? (
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <Label className="text-muted-foreground text-xs">ID / 类型</Label>
+                    <Label className="text-muted-foreground text-xs">标题 / 类型</Label>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline">{selectedItem.type}</Badge>
-                      <span className="truncate text-sm font-medium">{selectedItem.id}</span>
+                      <span className="truncate text-sm font-medium">
+                        {selectedItem.label || getKeyBindTitle(selectedItem.id)}
+                      </span>
                     </div>
                   </div>
 
@@ -379,7 +390,7 @@ export default function ContextMenuPage() {
                         <Label>显示名称</Label>
                         <Input
                           value={selectedItem.label || ""}
-                          placeholder={selectedItem.id}
+                          placeholder={getKeyBindTitle(selectedItem.id)}
                           onChange={(e) => updateItemProperty(selectedPath!, { label: e.target.value })}
                         />
                       </div>
@@ -473,7 +484,16 @@ export default function ContextMenuPage() {
   );
 }
 
-function MenuEditorItem({ item, path, isSelected, onDelete, onSelect, onToggleVisible, children }: any) {
+function MenuEditorItem({
+  item,
+  path,
+  isSelected,
+  getKeyBindTitle,
+  onDelete,
+  onSelect,
+  onToggleVisible,
+  children,
+}: any) {
   const isSeparator = item.type === "separator";
   const isGroup = item.type === "group";
 
@@ -526,7 +546,7 @@ function MenuEditorItem({ item, path, isSelected, onDelete, onSelect, onToggleVi
                 })()}
               </div>
               <div className="flex flex-1 items-center justify-between overflow-hidden">
-                <span className="truncate text-sm">{item.label || item.id}</span>
+                <span className="truncate text-sm">{item.label || getKeyBindTitle(item.id)}</span>
                 {isGroup && (
                   <span className="text-muted-foreground text-[10px] uppercase opacity-70">{item.layout}</span>
                 )}

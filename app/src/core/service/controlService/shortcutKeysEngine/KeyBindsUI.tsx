@@ -11,13 +11,14 @@ import { isMac } from "@/utils/platform";
 import { createStore } from "@/utils/store";
 import { Queue } from "@graphif/data-structures";
 import { proxy } from "comlink";
-import { allKeyBinds } from "./shortcutKeysRegister";
+import { allKeyBinds, type KeyBindWhen } from "./shortcutKeysRegister";
 
 export interface UIKeyBind {
   id: string;
   key: string;
   isEnabled: boolean;
   onPress: (project?: Project) => void;
+  when: KeyBindWhen;
   // 是否是持续型快捷键
   isContinuous?: boolean;
   onRelease?: (project?: Project) => void;
@@ -130,6 +131,7 @@ export namespace KeyBindsUI {
         keybind.onPress,
         keybind.onRelease,
         keybind.isContinuous,
+        keybind.when,
       );
     }
     await store.save();
@@ -143,15 +145,16 @@ export namespace KeyBindsUI {
     id: string,
     key: string,
     isEnabled: boolean = true,
-    onPress = () => {},
-    onRelease?: () => void,
+    onPress: (project?: Project) => void = () => {},
+    onRelease?: (project?: Project) => void,
     isContinuous?: boolean,
+    when: KeyBindWhen = () => true,
   ) {
     if (registerSet.has(id)) {
       // 检查是否已经是同 ID 的快捷键，如果是，则更新它（用于扩展重新认领逻辑）
       const index = allUIKeyBinds.findIndex((kb) => kb.id === id);
       if (index !== -1) {
-        allUIKeyBinds[index] = { id, key, isEnabled, onPress, onRelease, isContinuous };
+        allUIKeyBinds[index] = { id, key, isEnabled, onPress, onRelease, when, isContinuous };
         notifyKeyBindChange(id, allUIKeyBinds[index]);
         return;
       }
@@ -159,7 +162,7 @@ export namespace KeyBindsUI {
       return;
     }
     registerSet.add(id);
-    const keyBind: UIKeyBind = { id, key, isEnabled, onPress, onRelease, isContinuous };
+    const keyBind: UIKeyBind = { id, key, isEnabled, onPress, onRelease, when, isContinuous };
     allUIKeyBinds.push(keyBind);
 
     // 通知监听器有新的快捷键注册
@@ -367,7 +370,7 @@ export namespace KeyBindsUI {
     );
   }
 
-  function check(): boolean {
+  async function check(): Promise<boolean> {
     // 如果有文本输入元素获得焦点，不处理键盘事件
     if (!shouldProcessKeyboardEvent()) {
       // 清空队列，防止事件积累
@@ -387,6 +390,9 @@ export namespace KeyBindsUI {
         continue;
       }
       if (matchEmacsKeyPress(uiKeyBind.key, userEventQueue.arrayList)) {
+        if (!(await uiKeyBind.when(activeProject))) {
+          continue;
+        }
         uiKeyBind.onPress(uiKeyBind.id.startsWith("ext:") && activeProject ? proxy(activeProject) : activeProject);
         // 如果是单键快捷键且有onRelease回调，记录为已按下状态
         if (uiKeyBind.onRelease && uiKeyBind.key.length === 1) {
@@ -402,11 +408,11 @@ export namespace KeyBindsUI {
     return executed;
   }
 
-  function onMouseDown(event: MouseEvent) {
+  async function onMouseDown(event: MouseEvent) {
     enqueue(event);
-    check();
+    await check();
   }
-  function onKeyDown(event: KeyboardEvent) {
+  async function onKeyDown(event: KeyboardEvent) {
     // 如果有文本输入元素获得焦点，不处理键盘事件
     if (!shouldProcessKeyboardEvent()) {
       // 清空队列，防止事件积累
@@ -436,6 +442,7 @@ export namespace KeyBindsUI {
         if (parsed.meta !== event.metaKey) continue;
         // 防止 keydown 重复触发（按住时浏览器会持续发送 keydown 事件）
         if (pressedContinuousKeyBindIds.has(uiKeyBind.id)) continue;
+        if (!(await uiKeyBind.when(activeProject))) continue;
         pressedContinuousKeyBindIds.add(uiKeyBind.id);
         uiKeyBind.onPress(activeProject);
         continuousExecuted = true;
@@ -445,14 +452,14 @@ export namespace KeyBindsUI {
 
     // ——序列型快捷键路径——
     enqueue(event);
-    const sequenceExecuted = check();
+    const sequenceExecuted = await check();
 
     // 只要有快捷键被执行，就阻止浏览器默认行为（防止 Tab 跳焦点、方向键滚动页面等）
     if (continuousExecuted || sequenceExecuted) {
       event.preventDefault();
     }
   }
-  function onKeyUp(event: KeyboardEvent) {
+  async function onKeyUp(event: KeyboardEvent) {
     // 如果有文本输入元素获得焦点，不处理键盘事件
     if (!isMac && !shouldProcessKeyboardEvent()) {
       return;
@@ -474,6 +481,7 @@ export namespace KeyBindsUI {
       if (parsed.key !== keyUpNormalized) continue;
       if (!pressedContinuousKeyBindIds.has(uiKeyBind.id)) continue;
       pressedContinuousKeyBindIds.delete(uiKeyBind.id);
+      if (!(await uiKeyBind.when(activeProject))) continue;
       uiKeyBind.onRelease?.(activeProject);
     }
 
@@ -484,14 +492,15 @@ export namespace KeyBindsUI {
       if (!uiKeyBind.isEnabled) continue;
       if (uiKeyBind.isContinuous) continue;
       if (uiKeyBind.onRelease && uiKeyBind.key === key && pressedSingleKeyBinds.has(key)) {
-        uiKeyBind.onRelease(activeProject);
         pressedSingleKeyBinds.delete(key);
+        if (!(await uiKeyBind.when(activeProject))) continue;
+        uiKeyBind.onRelease(activeProject);
       }
     }
   }
-  function onWheel(event: WheelEvent) {
+  async function onWheel(event: WheelEvent) {
     enqueue(event);
-    check();
+    await check();
   }
 
   /**
