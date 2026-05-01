@@ -35,11 +35,9 @@ export function setupComlink() {
     },
   });
 
-  Comlink.transferHandlers.set("RPC_SMALI_STYLE", {
-    canHandle: (v) => typeof v === "string" && v.startsWith("@rpc:") && v.includes(";"),
-
+  Comlink.transferHandlers.set("CUSTOM_TYPES", {
+    canHandle: (v) => v !== null && typeof v === "object" && "_" in v && typeof v._ === "string",
     serialize: (v) => [v, []],
-
-    deserialize: (v) => [v, []],
+    deserialize: (v) => v,
   });
 }

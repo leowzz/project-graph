@@ -1,4 +1,5 @@
-import { Color } from "@graphif/data-structures";
+import { activeTabAtom, store } from "@/state";
+import { deserialize } from "@graphif/serializer";
 import * as Comlink from "comlink";
 
 interface ProxyArrayPayload {
@@ -52,22 +53,11 @@ export function setupComlink(): void {
     },
   });
 
-  Comlink.transferHandlers.set("RPC_SMALI_STYLE", {
-    canHandle: (v: any): v is string => typeof v === "string" && v.startsWith("@rpc:") && v.includes(";"),
-
-    serialize: (v: string) => [v, []],
-
-    deserialize: (v: string) => {
-      // 移除 "@rpc:" 前缀 (长度为 5)
-      const [typeInfo, dataRaw] = v.substring(5).split(";");
-
-      if (typeInfo === "Color" && dataRaw) {
-        // 解析 r,g,b,a
-        const [r, g, b, a] = dataRaw.split(",").map(Number);
-        return new Color(r, g, b, a);
-      }
-
-      return v;
-    },
+  Comlink.transferHandlers.set("CUSTOM_TYPES", {
+    // 主线程不发送这种数据类型，直接返回false
+    canHandle: (v): v is unknown => false,
+    serialize: (v) => [v, []],
+    deserialize: (v: { $rpc?: { deserializeWithProject?: boolean }; _: string }) =>
+      deserialize(v, v.$rpc?.deserializeWithProject ? store.get(activeTabAtom) : undefined),
   });
 }
