@@ -5,9 +5,11 @@ packages:
 
 overrides:
   vite: "npm:rolldown-vite@latest"
+  "@types/react": "catalog:"
 
 catalog:
   react: ^19.1.0
+  "@types/react": ^19.1.0
   react-dom: ^19.1.0
   typescript: 5.9.2
   tsdown: ^0.12.9

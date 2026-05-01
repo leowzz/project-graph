@@ -59,7 +59,7 @@ Popover.Confirm = ({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent className="w-64">
-        <div className="mb-2">{title}</div>
+        <div className="mb-2 font-bold">{title}</div>
         <div className="text-muted-foreground mb-2 text-sm">{description}</div>
         <div className="flex justify-end">
           <Button

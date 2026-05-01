@@ -1,5 +1,6 @@
 import MyContextMenuContent from "@/components/context-menu-content";
 import RenderSubWindows from "@/components/render-sub-windows";
+import ThemeModeSwitch from "@/components/theme-mode-switch";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { Dialog } from "@/components/ui/dialog";
@@ -28,15 +29,14 @@ import { ChevronsLeftRight, Copy, Minus, Pin, PinOff, Square, X } from "lucide-r
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { cpuInfo } from "tauri-plugin-system-info-api";
-import { cn } from "./utils/cn";
-import { isMac, isWindows } from "./utils/platform";
+import { DropWindowCover } from "./DropWindowCover";
+import { ProjectTabs } from "./ProjectTabs";
+import RightToolbar from "./components/right-toolbar";
+import ToolbarContent from "./components/toolbar-content";
 import { KeyBindsUI } from "./core/service/controlService/shortcutKeysEngine/KeyBindsUI";
 import { checkAndFixShortcutStorage } from "./core/service/controlService/shortcutKeysEngine/ShortcutKeyFixer";
-import { ProjectTabs } from "./ProjectTabs";
-import { DropWindowCover } from "./DropWindowCover";
-import ToolbarContent from "./components/toolbar-content";
-import RightToolbar from "./components/right-toolbar";
-import ThemeModeSwitch from "@/components/theme-mode-switch";
+import { cn } from "./utils/cn";
+import { isMac, isWindows } from "./utils/platform";
 
 export default function App() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
