@@ -15,7 +15,7 @@ export default function AIToolsWindow() {
       </div>
       {tools.map((t) => {
         const tool = t as any;
-        const schema = tool.schema as any;
+        const schema = tool.parameters as any;
         const props = schema?.shape as Record<string, any> | undefined;
         const hasParams = props && Object.keys(props).length > 0;
 

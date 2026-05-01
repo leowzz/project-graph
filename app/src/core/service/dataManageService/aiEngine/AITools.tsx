@@ -5,11 +5,22 @@ import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { Color, Vector } from "@graphif/data-structures";
 import { serialize } from "@graphif/serializer";
 import { Rectangle } from "@graphif/shapes";
-import { tool, StructuredTool } from "@langchain/core/tools";
+import { tool, type ToolSet } from "ai";
 import z from "zod/v4";
 
 export namespace AITools {
-  export const tools: StructuredTool[] = [];
+  export type ToolDefinition = {
+    name: string;
+    description: string;
+    parameters: z.ZodObject;
+  };
+
+  type InternalToolDefinition = ToolDefinition & {
+    fn: (project: Project, data: any) => any;
+  };
+
+  const toolDefinitions: InternalToolDefinition[] = [];
+  export const tools: ToolDefinition[] = toolDefinitions;
 
   function addTool<A extends z.ZodObject>(
     name: string,
@@ -17,21 +28,23 @@ export namespace AITools {
     parameters: A,
     fn: (project: Project, data: z.infer<A>) => any,
   ) {
-    const t = tool(
-      async (data, config) => {
-        const project = config.configurable?.project as Project;
-        if (!project) throw new Error("Project not found in config");
-        const result = await fn(project, data as any);
-        return typeof result === "object" ? JSON.stringify(result) : String(result);
-      },
-      {
-        name,
-        description,
-        schema: parameters as any,
-      },
-    );
+    toolDefinitions.push({ name, description, parameters, fn: fn as (project: Project, data: any) => any });
+  }
 
-    tools.push(t);
+  export function createTools(project: Project): ToolSet {
+    return Object.fromEntries(
+      toolDefinitions.map((definition) => [
+        definition.name,
+        tool({
+          description: definition.description,
+          inputSchema: definition.parameters as any,
+          execute: async (data: any) => {
+            const result = await definition.fn(project, data as any);
+            return result ?? { success: true };
+          },
+        }),
+      ]),
+    ) as ToolSet;
   }
 
   addTool("get_all_nodes", "获取舞台上所有节点以及uuid", z.object({}), (project) => serialize(project.stage));
