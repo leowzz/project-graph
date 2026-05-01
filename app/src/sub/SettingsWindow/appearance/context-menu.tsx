@@ -12,6 +12,9 @@ import {
   closestCenter,
   DndContext,
   DragEndEvent,
+  DragOverEvent,
+  DragOverlay,
+  DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -50,6 +53,7 @@ export default function ContextMenuPage() {
   const { t } = useTranslation("keyBinds");
   // Now tracks path instead of duplicating item. path is sufficient to find the item in the tree.
   const [selectedPath, setSelectedPath] = useState<number[] | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -110,7 +114,11 @@ export default function ContextMenuPage() {
     return current[path[path.length - 1]];
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -120,15 +128,26 @@ export default function ContextMenuPage() {
 
     if (!activeData || !overData) return;
 
-    // Remove from old position
+    const isOverGroup = overData.item.type === "group" || overData.item.type === "sub";
+    const activeContainerPath = activeData.path.slice(0, -1).join("-");
+    const overContainerPath = isOverGroup ? overData.path.join("-") : overData.path.slice(0, -1).join("-");
+
+    if (activeContainerPath === overContainerPath) return;
+
+    // Prevent moving parent into its own child
+    if (
+      overContainerPath === activeData.path.join("-") ||
+      overContainerPath.startsWith(activeData.path.join("-") + "-")
+    )
+      return;
+
     let currentList = newConfig;
     for (let i = 0; i < activeData.path.length - 1; i++) {
       currentList = currentList[activeData.path[i]].children;
     }
     const [movedItem] = currentList.splice(activeData.path[activeData.path.length - 1], 1);
 
-    // Insert into new position
-    if (overData.item.type === "group") {
+    if (isOverGroup) {
       overData.item.children = overData.item.children || [];
       overData.item.children.push(movedItem);
     } else {
@@ -140,7 +159,69 @@ export default function ContextMenuPage() {
     }
 
     saveConfig(newConfig);
-    // Reset selection if moving messes up path (for simplicity)
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const newConfig = JSON.parse(JSON.stringify(config));
+    const activeData = findItemPath(newConfig, active.id as string);
+    const overData = findItemPath(newConfig, over.id as string);
+
+    if (!activeData || !overData) return;
+
+    const isOverGroup = overData.item.type === "group" || overData.item.type === "sub";
+    const activeContainerPath = activeData.path.slice(0, -1).join("-");
+    const overContainerPath = isOverGroup ? overData.path.join("-") : overData.path.slice(0, -1).join("-");
+
+    if (activeContainerPath === overContainerPath) {
+      let list = newConfig;
+      for (let i = 0; i < activeData.path.length - 1; i++) {
+        list = list[activeData.path[i]].children;
+      }
+      const activeIndex = activeData.path[activeData.path.length - 1];
+      // When moving in the same list, the over index is just overData's last path segment
+      // UNLESS overData is a group and we are moving inside its children.
+      // But activeContainerPath === overContainerPath means they share the same parent container in this block.
+      // So overData MUST be a sibling, not the parent itself. Wait, if overData is a group, its container is ITSELF.
+      // So activeContainerPath (sibling's parent) cannot equal overContainerPath (group itself).
+      // Thus, overData must be a sibling here (neither of them is the container of the other).
+      const overIndex = overData.path[overData.path.length - 1];
+
+      const [movedItem] = list.splice(activeIndex, 1);
+      list.splice(overIndex, 0, movedItem);
+
+      saveConfig(newConfig);
+    } else {
+      // Prevent moving parent into its own child
+      if (
+        overContainerPath === activeData.path.join("-") ||
+        overContainerPath.startsWith(activeData.path.join("-") + "-")
+      )
+        return;
+
+      // Fallback for cross-container moves exactly at the moment of drop
+      let currentList = newConfig;
+      for (let i = 0; i < activeData.path.length - 1; i++) {
+        currentList = currentList[activeData.path[i]].children;
+      }
+      const [movedItem] = currentList.splice(activeData.path[activeData.path.length - 1], 1);
+
+      if (isOverGroup) {
+        overData.item.children = overData.item.children || [];
+        overData.item.children.push(movedItem);
+      } else {
+        let targetList = newConfig;
+        for (let i = 0; i < overData.path.length - 1; i++) {
+          targetList = targetList[overData.path[i]].children;
+        }
+        targetList.splice(overData.path[overData.path.length - 1], 0, movedItem);
+      }
+      saveConfig(newConfig);
+    }
+
     setSelectedPath(null);
   };
 
@@ -224,6 +305,17 @@ export default function ContextMenuPage() {
     saveConfig([...config, newGroup]);
   };
 
+  const addSubmenu = () => {
+    const newSubmenu = {
+      type: "sub",
+      id: "sub-" + Date.now(),
+      label: "子菜单",
+      visible: true,
+      children: [],
+    };
+    saveConfig([...config, newSubmenu]);
+  };
+
   const addSeparator = () => {
     const newItem = { type: "separator", id: "sep-" + Date.now(), visible: true };
     saveConfig([...config, newItem]);
@@ -269,16 +361,16 @@ export default function ContextMenuPage() {
                 onSelect={() => setSelectedPath(currentPath)}
                 onToggleVisible={() => updateItemProperty(currentPath, { visible: !item.visible })}
               >
-                {item.type === "group" && item.children && (
+                {item.type === "group" || item.type === "sub" ? (
                   <div className="border-primary/20 bg-muted/20 ml-6 mt-1.5 rounded-md border-l-2 pb-1 pl-3">
-                    {renderMenuItems(item.children, currentPath)}
-                    {item.children.length === 0 && (
+                    {renderMenuItems(item.children || [], currentPath)}
+                    {(!item.children || item.children.length === 0) && (
                       <div className="border-muted-foreground/30 text-muted-foreground mt-1 rounded border border-dashed py-2 text-center text-[10px] italic">
-                        拖拽功能到此分组
+                        拖拽功能到此层级
                       </div>
                     )}
                   </div>
-                )}
+                ) : null}
               </MenuEditorItem>
             );
           })}
@@ -326,6 +418,10 @@ export default function ContextMenuPage() {
                 <FolderPlus className="mr-1 size-3" />
                 分组
               </Button>
+              <Button size="sm" variant="secondary" className="flex-1 text-xs" onClick={addSubmenu}>
+                <FolderPlus className="mr-1 size-3" />
+                子菜单
+              </Button>
               <Button size="sm" variant="secondary" className="flex-1 text-xs" onClick={addSeparator}>
                 <MinusSquare className="mr-1 size-3" />
                 分割线
@@ -358,8 +454,22 @@ export default function ContextMenuPage() {
           </div>
           <ScrollArea className="h-0 flex-1 p-4">
             <div className="bg-popover text-popover-foreground mx-auto w-full max-w-sm rounded-lg border shadow-md">
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
+              >
                 {renderMenuItems(config)}
+                <DragOverlay dropAnimation={null}>
+                  {activeId ? (
+                    <MenuEditorItemOverlay
+                      item={findItemPath(config, activeId)?.item}
+                      getKeyBindTitle={getKeyBindTitle}
+                    />
+                  ) : null}
+                </DragOverlay>
               </DndContext>
             </div>
           </ScrollArea>
@@ -402,7 +512,7 @@ export default function ContextMenuPage() {
                       <div className="flex flex-col gap-1.5">
                         <Label>布局方式</Label>
                         <Select
-                          value={selectedItem.layout}
+                          value={selectedItem.layout || "row"}
                           onValueChange={(val) => updateItemProperty(selectedPath!, { layout: val })}
                         >
                           <SelectTrigger>
@@ -461,7 +571,7 @@ export default function ContextMenuPage() {
                         onClick={() => moveOutFromGroup(selectedPath!)}
                       >
                         <CornerUpLeft className="mr-1 size-3" />
-                        移出当前分组
+                        移出分组
                       </Button>
                     )}
                   </div>
@@ -496,6 +606,7 @@ function MenuEditorItem({
 }: any) {
   const isSeparator = item.type === "separator";
   const isGroup = item.type === "group";
+  const isSub = item.type === "sub";
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
 
@@ -504,6 +615,7 @@ function MenuEditorItem({
     transition,
     zIndex: isDragging ? 50 : "auto",
     position: "relative" as const,
+    opacity: isDragging ? 0.3 : 1,
   };
 
   return (
@@ -550,6 +662,7 @@ function MenuEditorItem({
                 {isGroup && (
                   <span className="text-muted-foreground text-[10px] uppercase opacity-70">{item.layout}</span>
                 )}
+                {isSub && <span className="text-muted-foreground text-[10px] uppercase opacity-70">Submenu</span>}
               </div>
             </>
           )}
@@ -581,6 +694,45 @@ function MenuEditorItem({
         </div>
       </div>
       {children}
+    </div>
+  );
+}
+
+function MenuEditorItemOverlay({ item, getKeyBindTitle }: any) {
+  if (!item) return null;
+  const isSeparator = item.type === "separator";
+  const isGroup = item.type === "group";
+  const isSub = item.type === "sub";
+
+  return (
+    <div className="bg-accent ring-primary/50 group flex scale-[1.02] items-center gap-2 rounded-md border border-transparent px-2 py-1.5 shadow-xl ring-2">
+      <div className="text-muted-foreground/50 flex items-center justify-center">
+        <GripVertical className="size-3.5" />
+      </div>
+
+      <div className="flex flex-1 items-center gap-2 overflow-hidden">
+        {isSeparator ? (
+          <div className="bg-border h-px flex-1" />
+        ) : (
+          <>
+            <div className="flex size-5 items-center justify-center">
+              {(() => {
+                const kb = staticKeyBinds.find((k) => k.id === item.id);
+                if (kb?.icon) {
+                  const IconComp = kb.icon;
+                  return <IconComp className="size-3.5" />;
+                }
+                return <Type className="text-muted-foreground/50 size-3.5" />;
+              })()}
+            </div>
+            <div className="flex flex-1 items-center justify-between overflow-hidden">
+              <span className="truncate text-sm">{item.label || getKeyBindTitle(item.id)}</span>
+              {isGroup && <span className="text-muted-foreground text-[10px] uppercase opacity-70">{item.layout}</span>}
+              {isSub && <span className="text-muted-foreground text-[10px] uppercase opacity-70">Submenu</span>}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

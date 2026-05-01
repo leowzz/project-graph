@@ -84,13 +84,22 @@ export default function MyContextMenuContent() {
     if (!isConfigVisible(it)) return null;
     if (it.type === "separator") return <div key={it.id} />;
 
+    const keyBind = KeyBindsUI.getUIKeyBind(it.id);
+
     return (
       <KeyTooltip key={`tooltip-${it.id}`} keyId={it.id}>
         <Button
           variant="ghost"
           size="icon"
           className={isGrid ? "size-6" : ""}
-          onClick={() => KeyBindsUI.getUIKeyBind(it.id)?.onPress?.(p)}
+          onClick={() => {
+            keyBind?.onPress?.(p);
+            if ((keyBind?.isContinuous || keyBind?.onRelease) && keyBind?.onRelease) {
+              setTimeout(() => {
+                keyBind.onRelease?.(p);
+              }, 100);
+            }
+          }}
         >
           {getIcon(it.id, it.icon)}
         </Button>
@@ -192,10 +201,21 @@ export default function MyContextMenuContent() {
     if (!checkVisible(itemConfig.id)) return null;
     const keyBind = KeyBindsUI.getUIKeyBind(itemConfig.id);
     const action = keyBind?.onPress;
+    const release = keyBind?.onRelease;
+    const isContinuous = keyBind?.isContinuous;
     const shortcut = keyBind?.key;
 
+    const handleClick = () => {
+      action?.(p);
+      if ((isContinuous || release) && release) {
+        setTimeout(() => {
+          release?.(p);
+        }, 100);
+      }
+    };
+
     return (
-      <Item key={itemConfig.id} onClick={() => action?.(p)} disabled={!action}>
+      <Item key={itemConfig.id} onClick={handleClick} disabled={!action}>
         {getIcon(itemConfig.id, itemConfig.icon)}
         {getItemTitle(itemConfig.id, itemConfig.label)}
         {shortcut && <ContextMenuShortcut>{shortcut}</ContextMenuShortcut>}
