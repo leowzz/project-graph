@@ -28,18 +28,46 @@ function TooltipContent({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Content>) {
   const [coords, setCoords] = React.useState({ x: 0, y: 0 });
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const [offset, setOffset] = React.useState({ left: 0, top: 0 });
 
   React.useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
-      setCoords({ x: event.clientX, y: event.clientY });
+      const x = event.clientX;
+      const y = event.clientY;
+      setCoords({ x, y });
+
+      if (contentRef.current) {
+        const { width, height } = contentRef.current.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        let left = x + sideOffset;
+        let top = y + sideOffset;
+
+        if (left + width > viewportWidth) {
+          left = x - width - sideOffset;
+        }
+
+        if (top + height > viewportHeight) {
+          top = y - height - sideOffset;
+        }
+
+        // Final boundary checks
+        left = Math.max(0, Math.min(left, viewportWidth - width));
+        top = Math.max(0, Math.min(top, viewportHeight - height));
+
+        setOffset({ left, top });
+      }
     };
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, []);
+  }, [sideOffset]);
 
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Content
+        ref={contentRef}
         data-slot="tooltip-content"
         hideWhenDetached
         className={cn(
@@ -48,8 +76,8 @@ function TooltipContent({
         )}
         style={{
           ...props.style,
-          left: coords.x + sideOffset,
-          top: coords.y + sideOffset,
+          left: offset.left,
+          top: offset.top,
         }}
         {...props}
       >
