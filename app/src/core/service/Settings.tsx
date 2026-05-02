@@ -220,6 +220,7 @@ export const settingsSchema = z.object({
           z.literal("sub"),
           z.literal("group"),
           z.literal("setColorForSelected"),
+          z.literal("setPenStrokeColor"),
         ]),
         id: z.string(),
         label: z.string().optional(),
@@ -292,7 +293,8 @@ export const settingsSchema = z.object({
       {
         type: "group",
         id: "dag-group",
-        layout: "row",
+        layout: "grid",
+        cols: 1,
         children: [{ type: "item", id: "dagGraphAdjust", icon: "Workflow" }],
       },
       {
@@ -432,11 +434,10 @@ export const settingsSchema = z.object({
       { type: "item", id: "resetMTUEdgeEndpointLocations", label: "重置端点位置到中心", icon: "AlignCenterHorizontal" },
       { type: "item", id: "switchUndirectedEdgeToEdge", icon: "MoveUpRight" },
       {
-        type: "sub",
+        type: "setPenStrokeColor",
         id: "pen-stroke-color",
         label: "改变画笔颜色",
         icon: "Palette",
-        children: [{ type: "item", id: "resetPenStrokeColor", icon: "Slash" }],
       },
       { type: "item", id: "copySelectedImageToClipboard", label: "复制图片到系统剪贴板", icon: "Clipboard" },
       { type: "item", id: "swapSelectedImageRedBlueChannels", label: "对调图片红蓝通道", icon: "ArrowLeftRight" },

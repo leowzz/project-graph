@@ -158,6 +158,38 @@ export default function MyContextMenuContent() {
     );
   };
 
+  const renderSetPenStrokeColor = (itemConfig: ContextMenuConfigItem) => {
+    return (
+      <Sub key={itemConfig.id}>
+        <SubTrigger>
+          {getIcon(itemConfig.id, itemConfig.icon)}
+          {getItemTitle(itemConfig.id, itemConfig.label)}
+        </SubTrigger>
+        <SubContent>
+          <Item onClick={() => (Settings.autoFillPenStrokeColor = Color.Transparent.toArray())}>
+            {getIcon("resetPenStrokeColor", "Slash")}
+            {t("resetColor")}
+          </Item>
+          <Item className="bg-transparent! grid grid-cols-11 gap-0">
+            {Object.values(tailwindColors)
+              .filter((it) => typeof it !== "string")
+              .slice(4)
+              .flatMap((it) => Object.values(it).map(Color.fromCss))
+              .map((color, index) => (
+                <div
+                  key={index}
+                  className="hover:outline-accent-foreground size-4 -outline-offset-2 hover:outline-2"
+                  style={{ backgroundColor: color.toString() }}
+                  onMouseEnter={() => (Settings.autoFillPenStrokeColor = color.toArray())}
+                />
+              ))}
+          </Item>
+          <Item onClick={() => ColorWindow.open()}>打开调色板</Item>
+        </SubContent>
+      </Sub>
+    );
+  };
+
   const renderItem = (itemConfig: ContextMenuConfigItem): ReactNode => {
     if (!isConfigVisible(itemConfig)) return null;
 
@@ -183,6 +215,10 @@ export default function MyContextMenuContent() {
 
     if (itemConfig.type === "setColorForSelected") {
       return renderSetColorForSelected(itemConfig);
+    }
+
+    if (itemConfig.type === "setPenStrokeColor") {
+      return renderSetPenStrokeColor(itemConfig);
     }
 
     if (itemConfig.type === "sub") {
