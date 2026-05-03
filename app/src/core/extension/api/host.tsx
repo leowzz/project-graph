@@ -5,6 +5,7 @@ import { Settings } from "@/core/service/Settings";
 import { activeTabAtom, store, tabsAtom } from "@/state";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
+import { invoke } from "@tauri-apps/api/core";
 import { fetch } from "@tauri-apps/plugin-http";
 import { proxy } from "comlink";
 import { toast } from "sonner";
@@ -73,6 +74,27 @@ export function extensionHostApiFactory(extension: Extension) {
 
     //region 网络请求
     fetch,
+
+    async fetch_base64(url: string): Promise<string> {
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const mimeType = response.headers.get("content-type") || "image/png";
+      return `data:${mimeType};base64,${btoa(binary)}`;
+    },
+
+    //region 系统命令
+    async shell_execute(program: string, args?: string[], stdin?: string) {
+      return invoke<{ code: number | null; stdout: string; stderr: string }>("run_command", {
+        program,
+        cmdArgs: args ?? [],
+        stdin,
+      });
+    },
 
     //region 设置
     async settings_getOwn(key: string) {
