@@ -18,6 +18,10 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
   private isMovingEntity = false;
   private mouseDownViewLocation = Vector.getZero();
   private shakeDetector = new ShakeDetector();
+  /** 按住 Shift 拖拽时锁定的移动轴，null 表示尚未确定 */
+  private shiftAxisLock: "x" | "y" | null = null;
+  /** 按住 Shift 拖拽时，相对于按下时世界坐标的累计位移，用于确定锁定轴 */
+  private shiftAccumulatedDelta = Vector.getZero();
 
   public mousedown: (event: MouseEvent) => void = (event: MouseEvent) => {
     if (event.button !== 0) {
@@ -93,6 +97,8 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
     if (clickedStageObject !== null) {
       this.isMovingEntity = true;
       this.shakeDetector.reset(); // 开始拖拽时重置摇晃检测器
+      this.shiftAxisLock = null;
+      this.shiftAccumulatedDelta = Vector.getZero();
 
       if (
         this.project.controller.pressingKeySet.has("shift") &&
@@ -160,7 +166,34 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
       return;
     }
     const worldLocation = this.project.renderer.transformView2World(new Vector(event.clientX, event.clientY));
-    const diffLocation = worldLocation.subtract(this.lastMoveLocation);
+    let diffLocation = worldLocation.subtract(this.lastMoveLocation);
+
+    {
+      // 按住 Shift 键：锁定水平或垂直方向移动
+      const isShiftPressed = this.project.controller.pressingKeySet.has("shift");
+      if (isShiftPressed) {
+        // 累计位移用于确定锁定轴（避免刚按下时微小抖动误判方向）
+        this.shiftAccumulatedDelta = this.shiftAccumulatedDelta.add(diffLocation);
+        if (this.shiftAxisLock === null) {
+          const absX = Math.abs(this.shiftAccumulatedDelta.x);
+          const absY = Math.abs(this.shiftAccumulatedDelta.y);
+          // 累计位移超过 3 像素时才确定轴方向
+          if (absX > 3 || absY > 3) {
+            this.shiftAxisLock = absX >= absY ? "x" : "y";
+          }
+        }
+        // 锁定后，将垂直于锁定轴的分量清零
+        if (this.shiftAxisLock === "x") {
+          diffLocation = new Vector(diffLocation.x, 0);
+        } else if (this.shiftAxisLock === "y") {
+          diffLocation = new Vector(0, diffLocation.y);
+        }
+      } else {
+        // Shift 松开时重置锁定状态
+        this.shiftAxisLock = null;
+        this.shiftAccumulatedDelta = Vector.getZero();
+      }
+    }
 
     if (this.project.stageManager.isHaveEntitySelected()) {
       // 移动节点
@@ -237,6 +270,8 @@ export class ControllerEntityClickSelectAndMoveClass extends ControllerClass {
 
     this.isMovingEntity = false;
     this.shakeDetector.reset();
+    this.shiftAxisLock = null;
+    this.shiftAccumulatedDelta = Vector.getZero();
   };
 
   public mouseMoveOutWindowForcedShutdown(_outsideLocation: Vector): void {
