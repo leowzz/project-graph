@@ -48,7 +48,10 @@ export default function ExtensionsTab() {
                 {loading ? (
                   <div className="text-muted-foreground p-4 text-center text-sm">加载中...</div>
                 ) : extensions.length === 0 ? (
-                  <div className="text-muted-foreground p-4 text-center text-sm">未发现扩展</div>
+                  <div className="text-muted-foreground p-4 text-center text-sm">
+                    <p>未发现扩展</p>
+                    <p>可以通过安装本地prg文件来添加扩展</p>
+                  </div>
                 ) : (
                   extensions.map((ext) => {
                     const metadata = ext.metadata.extension;
@@ -75,7 +78,7 @@ export default function ExtensionsTab() {
         ) : (
           <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-4">
             <Blocks className="size-16 opacity-20" />
-            <p>{loading ? "正在加载扩展列表..." : "请选择一个扩展查看详情"}</p>
+            <p>{loading ? "正在加载扩展列表..." : "请在侧边栏选择一个扩展查看详情"}</p>
           </div>
         )}
       </div>
