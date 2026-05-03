@@ -18,6 +18,23 @@ import { Rectangle } from "@graphif/shapes";
 export class StageSyncAssociationManager {
   constructor(private readonly project: Project) {}
 
+  public createTwinsFromSelectedEntities(): void {
+    const selectedEntities = this.project.stageManager.getSelectedEntities();
+    const createdTwins: StageObject[] = [];
+    for (const entity of selectedEntities) {
+      if (entity instanceof TextNode) {
+        createdTwins.push(this.createTwinTextNode(entity));
+      }
+    }
+
+    if (createdTwins.length === 0) return;
+
+    this.project.stageManager.clearSelectAll();
+    for (const twin of createdTwins) {
+      twin.isSelected = true;
+    }
+  }
+
   /**
    * 获取所有 SyncAssociation 对象
    */

@@ -1503,12 +1503,7 @@ export const allKeyBinds: KeyBindItem[] = [
     id: "createTwinTextNode",
     defaultKey: "S-y",
     onPress: (project) => {
-      const selectedTextNodes = project!.stageManager
-        .getSelectedEntities()
-        .filter((node) => node instanceof TextNode) as TextNode[];
-      for (const textNode of selectedTextNodes) {
-        project!.syncAssociationManager.createTwinTextNode(textNode);
-      }
+      project!.syncAssociationManager.createTwinsFromSelectedEntities();
     },
   },
 
