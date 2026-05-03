@@ -2,6 +2,7 @@ import { Project, service } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { ConnectPoint } from "@/core/stage/stageObject/entity/ConnectPoint";
+import { ExtensionEntity } from "@/core/stage/stageObject/entity/ExtensionEntity";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { PenStroke } from "@/core/stage/stageObject/entity/PenStroke";
 import { ReferenceBlockNode } from "@/core/stage/stageObject/entity/ReferenceBlockNode";
@@ -12,6 +13,7 @@ import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
 import { DetailsManager } from "@/core/stage/stageObject/tools/entityDetailsManager";
 import { Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
+import { ExtensionEntityRenderer } from "./ExtensionEntityRenderer";
 
 /**
  * 处理节点相关的绘制
@@ -19,8 +21,11 @@ import { Rectangle } from "@graphif/shapes";
 @service("entityRenderer")
 export class EntityRenderer {
   private sectionSortedZIndex: Section[] = [];
+  public extensionEntityRenderer: ExtensionEntityRenderer;
 
-  constructor(private readonly project: Project) {}
+  constructor(private readonly project: Project) {
+    this.extensionEntityRenderer = new ExtensionEntityRenderer(this.project);
+  }
 
   /**
    * 对所有section排序一次
@@ -164,6 +169,8 @@ export class EntityRenderer {
       this.project.svgNodeRenderer.render(entity);
     } else if (entity instanceof ReferenceBlockNode) {
       this.project.referenceBlockRenderer.render(entity);
+    } else if (entity instanceof ExtensionEntity) {
+      this.extensionEntityRenderer.render(entity);
     }
     // details右上角小按钮
     if (this.project.camera.currentScale > 0.065) {

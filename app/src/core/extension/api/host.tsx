@@ -3,15 +3,28 @@ import { Project } from "@/core/Project";
 import { KeyBindIcon } from "@/core/service/controlService/shortcutKeysEngine/KeyBindsUI";
 import { Settings } from "@/core/service/Settings";
 import { activeTabAtom, store, tabsAtom } from "@/state";
+import { Vector } from "@graphif/data-structures";
+import { Rectangle } from "@graphif/shapes";
 import { fetch } from "@tauri-apps/plugin-http";
 import { proxy } from "comlink";
 import { toast } from "sonner";
+import { CollisionBox } from "../../stage/stageObject/collisionBox/collisionBox";
+import { ExtensionEntity, ExtensionEntityConfig } from "../../stage/stageObject/entity/ExtensionEntity";
 import { Extension } from "../Extension";
 import { ExtensionKeyBindManager } from "../ExtensionKeyBindManager";
+import { extensionObjectRegistry } from "../ExtensionObjectRegistry";
 
 export function extensionHostApiFactory(extension: Extension) {
   const extensionName = extension.metadata.extension?.name || "未知扩展";
   const extensionId = extension.metadata.extension?.id || "unknown";
+
+  function cloneCollisionBox(cb: CollisionBox): CollisionBox {
+    const clonedShapes = cb.shapes.map((s) => {
+      const r = s.getRectangle();
+      return new Rectangle(r.location.clone(), r.size.clone());
+    });
+    return new CollisionBox(clonedShapes);
+  }
 
   return {
     //region toast
@@ -131,5 +144,58 @@ export function extensionHostApiFactory(extension: Extension) {
       }
       return null;
     },
+
+    //region 自定义 Entity
+    async entity_registerType(
+      typeName: string,
+      initialData: any,
+      collisionBox: CollisionBox,
+      renderFn: (data: any) => Promise<ImageBitmap>,
+    ) {
+      const config: ExtensionEntityConfig = { initialData, collisionBox };
+      extensionObjectRegistry.registerType(extensionId, typeName, config, renderFn);
+      patchLoadedEntities(typeName, collisionBox);
+    },
+
+    async entity_onClick(
+      typeName: string,
+      handler: (payload: import("../ExtensionObjectRegistry").ClickEventPayload) => void,
+    ) {
+      extensionObjectRegistry.registerClickHandler(extensionId, typeName, handler);
+    },
+
+    async entity_create(typeName: string, data: any, location: { x: number; y: number }) {
+      const activeTab = store.get(activeTabAtom);
+      if (!(activeTab instanceof Project)) {
+        throw new Error("当前标签页不是一个项目，无法创建实体");
+      }
+
+      const config = extensionObjectRegistry.getConfig(extensionId, typeName);
+      const entity = new ExtensionEntity(activeTab, {
+        extensionId,
+        typeName,
+        customData: data,
+        collisionBox: config ? cloneCollisionBox(config.collisionBox) : undefined,
+      });
+      entity.location = new Vector(location.x, location.y);
+
+      activeTab.stageManager.add(entity);
+      return proxy(entity);
+    },
   };
+
+  function patchLoadedEntities(typeName: string, collisionBox: CollisionBox) {
+    for (const tab of store.get(tabsAtom)) {
+      if (!(tab instanceof Project)) continue;
+      for (const obj of tab.stage) {
+        if (!(obj instanceof ExtensionEntity)) continue;
+        if (obj.extensionId !== extensionId || obj.typeName !== typeName) continue;
+        const rect = obj.collisionBox.getRectangle();
+        if (rect.size.x === 0 && rect.size.y === 0) {
+          obj.collisionBox = cloneCollisionBox(collisionBox);
+          obj._isDirty = true;
+        }
+      }
+    }
+  }
 }

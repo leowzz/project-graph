@@ -17,6 +17,8 @@ export function setupComlink(): void {
       !(e instanceof Promise) &&
       !(e instanceof Date) &&
       !(e instanceof RegExp) &&
+      !(e instanceof ImageBitmap) &&
+      !(e instanceof OffscreenCanvas) &&
       (Array.isArray(e) || e.constructor !== Object),
 
     serialize: (e: object) => {
@@ -57,7 +59,7 @@ export function setupComlink(): void {
 
   Comlink.transferHandlers.set("CUSTOM_TYPES", {
     // 主线程不发送这种数据类型，直接返回false
-    canHandle: (v): v is unknown => false,
+    canHandle: (_v: unknown): _v is unknown => false,
     serialize: (v) => [v, []],
     deserialize: (v: { $rpc?: { deserializeWithProject?: boolean }; _: string }) =>
       deserialize(v, v.$rpc?.deserializeWithProject ? store.get(activeTabAtom) : undefined),
@@ -73,5 +75,11 @@ export function setupComlink(): void {
       icons[v.$lucide as keyof typeof icons] as unknown as ForwardRefExoticComponent<
         Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>
       >,
+  });
+
+  Comlink.transferHandlers.set("IMAGE_BITMAP", {
+    canHandle: (v): v is ImageBitmap | OffscreenCanvas => v instanceof ImageBitmap || v instanceof OffscreenCanvas,
+    serialize: (v) => [v, [v as unknown as Transferable]],
+    deserialize: (v) => v,
   });
 }

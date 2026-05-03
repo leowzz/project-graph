@@ -13,8 +13,9 @@ import { SvgNode } from "@/core/stage/stageObject/entity/SvgNode";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
 import { Color, ProgressNumber } from "@graphif/data-structures";
-import { ReferenceBlockNode } from "../../stageObject/entity/ReferenceBlockNode";
 import { ConnectableEntity } from "../../stageObject/abstract/ConnectableEntity";
+import { ExtensionEntity } from "../../stageObject/entity/ExtensionEntity";
+import { ReferenceBlockNode } from "../../stageObject/entity/ReferenceBlockNode";
 
 type DeleteHandler<T extends StageObject> = (object: T) => void;
 type Constructor<T> = { new (...args: any[]): T };
@@ -39,6 +40,7 @@ export class DeleteManager {
     this.registerHandler(PenStroke, this.deletePenStroke.bind(this));
     this.registerHandler(SvgNode, this.deleteSvgNode.bind(this));
     this.registerHandler(ReferenceBlockNode, this.deleteReferenceBlockNode.bind(this));
+    this.registerHandler(ExtensionEntity, this.deleteExtensionEntity.bind(this));
     this.registerHandler(MultiTargetUndirectedEdge, this.deleteMultiTargetUndirectedEdge.bind(this));
   }
 
@@ -70,6 +72,12 @@ export class DeleteManager {
       this.project.stageManager.delete(entity);
       // 删除所有相关的边
       this.deleteEntityAfterClearAssociation(entity);
+    }
+  }
+
+  private deleteExtensionEntity(entity: ExtensionEntity) {
+    if (this.project.stageManager.getEntities().includes(entity)) {
+      this.project.stageManager.delete(entity);
     }
   }
 

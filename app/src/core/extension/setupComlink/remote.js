@@ -8,6 +8,8 @@ export function setupComlink() {
       !(e instanceof Promise) &&
       !(e instanceof Date) &&
       !(e instanceof RegExp) &&
+      !(e instanceof ImageBitmap) &&
+      !(e instanceof OffscreenCanvas) &&
       (Array.isArray(e) || e.constructor !== Object),
     serialize: (e) => {
       if (Array.isArray(e)) {
@@ -44,6 +46,15 @@ export function setupComlink() {
   Comlink.transferHandlers.set("LUCIDE_ICON", {
     canHandle: (v) => v !== null && typeof v === "object" && "$lucide" in v && typeof v.$lucide === "string",
     serialize: (v) => [v, []],
+    deserialize: (v) => v,
+  });
+
+  Comlink.transferHandlers.set("IMAGE_BITMAP", {
+    canHandle: (v) => v instanceof ImageBitmap || v instanceof OffscreenCanvas,
+    serialize: (v) => {
+      // ImageBitmap and OffscreenCanvas are transferable
+      return [v, [v]];
+    },
     deserialize: (v) => v,
   });
 }
