@@ -40,6 +40,7 @@ import SettingsWindow from "@/sub/SettingsWindow";
 import TagWindow from "@/sub/TagWindow";
 import TestWindow from "@/sub/TestWindow";
 import UserWindow from "@/sub/UserWindow";
+import { openTextImportWindow } from "@/sub/TextImportWindow";
 import { getDeviceId } from "@/utils/otherApi";
 import { PathString } from "@/utils/pathString";
 import { showTreeValidationErrors } from "@/utils/treeValidation";
@@ -85,6 +86,7 @@ import {
   FileOutput,
   FilePlus,
   FileSpreadsheet,
+  FileText,
   FolderClock,
   FolderCog,
   FolderOpen,
@@ -356,12 +358,11 @@ export function GlobalMenu() {
           </Item>
           <Item
             onClick={async () => {
-              const path = Settings.autoBackupCustomPath?.trim() || Settings.autoBackupCustomPath2?.trim();
-              if (!path) {
+              if (Settings.autoBackupCustomPath && Settings.autoBackupCustomPath.trim()) {
+                await shellOpen(Settings.autoBackupCustomPath.trim());
+              } else {
                 toast.error("未设置自定义备份路径");
-                return;
               }
-              await shellOpen(path);
             }}
           >
             <FolderClock />
@@ -480,6 +481,15 @@ export function GlobalMenu() {
               >
                 <Images />
                 导入SVG图片
+              </Item>
+              <Item
+                disabled={!activeProject}
+                onClick={() => {
+                  openTextImportWindow();
+                }}
+              >
+                <FileText />
+                导入文本文件
               </Item>
               <Separator />
               <Item disabled className="text-sm">
