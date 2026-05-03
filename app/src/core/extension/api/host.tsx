@@ -87,6 +87,12 @@ export function extensionHostApiFactory(extension: Extension) {
       return `data:${mimeType};base64,${btoa(binary)}`;
     },
 
+    async fetch_json(url: string): Promise<unknown> {
+      const response = await fetch(url);
+      const text = await response.text();
+      return JSON.parse(text);
+    },
+
     //region 系统命令
     async shell_execute(program: string, args?: string[], stdin?: string) {
       return invoke<{ code: number | null; stdout: string; stderr: string }>("run_command", {
