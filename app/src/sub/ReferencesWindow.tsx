@@ -69,7 +69,7 @@ export default function ReferencesWindow(props: { currentProjectFileName: string
             </div>
 
             <div>
-              <h3 className="mb-2 text-lg font-semibold">引用此文件中一些Section框的文件</h3>
+              <h3 className="mb-2 text-lg font-semibold">引用此文件中一些分组框的文件</h3>
               {Object.keys(references.sections).length === 0 ? (
                 <p className="text-muted-foreground text-sm">{currentProjectFileName}中没有被引用的Section</p>
               ) : (

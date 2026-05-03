@@ -851,7 +851,7 @@ export default function MyContextMenuContent() {
             }}
           >
             <Lock />
-            锁定/解锁 section 框
+            锁定/解锁 分组框
           </Item>
         </>
       )}

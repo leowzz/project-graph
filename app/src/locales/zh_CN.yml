@@ -318,7 +318,7 @@ settings:
   sectionBackgroundFillMode:
     title: 框的背景颜色填充方式
     description: |
-      控制section框的背景颜色填充方式
+      控制分组框的背景颜色填充方式
       完整填充：填充整个框的背景（默认方式，有透明度化和遮罩顺序判断）
       仅标题条：只填充顶部标题那一小条的部分
     options:
@@ -890,7 +890,7 @@ settings:
   packEntityToSectionSoundFile:
     title: 打包为框的声音文件
     description: |
-      将选中的实体打包到Section框中时播放的声音文件路径
+      将选中的实体打包到分组框中时播放的声音文件路径
   treeGenerateDeepSoundFile:
     title: 树形深度生长的声音文件
     description: |
@@ -1189,9 +1189,9 @@ keyBindsGroup:
     description: |
       和文本节点相关的一切快捷键，分割、合并、创建等
   section:
-    title: Section框
+    title: 分组框
     description: |
-      Section框相关功能
+      分组框相关功能
   leftMouseModeCheckout:
     title: 左键模式切换
     description: |
@@ -1296,11 +1296,11 @@ keyBinds:
     title: 重置缩放
     description: 将视野缩放重置为标准大小
   folderSection:
-    title: 折叠或展开Section框
-    description: 按下后选中的Section框会切换折叠或展开状态
+    title: 折叠或展开分组框
+    description: 按下后选中的分组框会切换折叠或展开状态
   toggleSectionLock:
-    title: 锁定/解锁Section框
-    description: 切换选中Section框的锁定状态，锁定后内部物体不可移动
+    title: 锁定/解锁分组框
+    description: 切换选中分组框的锁定状态，锁定后内部物体不可移动
   reverseEdges:
     title: 反转连线的方向
     description: |
@@ -1319,19 +1319,19 @@ keyBinds:
     description: |
       按下后，选中的两个或者多个实体之间会创建一条无向连线
   packEntityToSection:
-    title: 将选中的实体打包到Section框中
+    title: 将选中的实体打包到分组框中
     description: |
-      按下后，选中的实体会自动包裹到新Section框中
+      按下后，选中的实体会自动包裹到新分组框中
   unpackEntityFromSection:
-    title: Section框拆包，转换为文本节点
+    title: 分组框拆包，转换为文本节点
     description: |
-      按下后，选中的Section框中的实体会被拆包，自身转换成一个文本节点
+      按下后，选中的分组框中的实体会被拆包，自身转换成一个文本节点
       内部的实体将会掉落在外面
   textNodeToSection:
-    title: 将选中的文本节点转换成Section框
+    title: 将选中的文本节点转换成分组框
     description: |
-      按下后，选中的文本节点会被转换成Section框
-      可以用于section框的快速创建
+      按下后，选中的文本节点会被转换成分组框
+      可以用于分组框的快速创建
   deleteSelectedStageObjects:
     title: 删除选中的舞台物体
     description: |
@@ -1510,19 +1510,19 @@ keyBinds:
   jumpMoveUpSelectedEntities:
     title: 跳跃向上移动所有选中的实体
     description: |
-      按下后，所有选中的实体会跳跃向上移动一个固定距离，能够跳入或者跳出Section框
+      按下后，所有选中的实体会跳跃向上移动一个固定距离，能够跳入或者跳出分组框
   jumpMoveDownSelectedEntities:
     title: 跳跃向下移动所有选中的实体
     description: |
-      按下后，所有选中的实体会跳跃向下移动一个固定距离，能够跳入或者跳出Section框
+      按下后，所有选中的实体会跳跃向下移动一个固定距离，能够跳入或者跳出分组框
   jumpMoveLeftSelectedEntities:
     title: 跳跃向左移动所有选中的实体
     description: |
-      按下后，所有选中的实体会跳跃向左移动一个固定距离，能够跳入或者跳出Section框
+      按下后，所有选中的实体会跳跃向左移动一个固定距离，能够跳入或者跳出分组框
   jumpMoveRightSelectedEntities:
     title: 跳跃向右移动所有选中的实体
     description: |
-      按下后，所有选中的实体会跳跃向右移动一个固定距离，能够跳入或者跳出Section框
+      按下后，所有选中的实体会跳跃向右移动一个固定距离，能够跳入或者跳出分组框
   CameraScaleZoomIn:
     title: 视野放大
     description: 按下后，视野放大

@@ -309,7 +309,7 @@ export class AutoAlign {
         return distanceA - distanceB; // 升序排序
       })
       .filter((entity) => {
-        // 排除entity是selectedEntity的父亲Section框
+        // 排除entity是selectedEntity的父亲分组框
         // 可以偷个懒，如果检测两个entity具有位置重叠了，那么直接排除过滤掉
         return !entity.collisionBox.getRectangle().isCollideWithRectangle(selectedEntity.collisionBox.getRectangle());
       });

@@ -139,7 +139,7 @@ export class Section extends ConnectableEntity {
   }
 
   /**
-   * 根据子内容 自动调整Section框的位置和大小
+   * 根据子内容 自动调整分组框的位置和大小
    * 如果没有子内容，则
    *   自动调整大小为 标题+padding，位置为 当前碰撞箱外接矩形的左上角
    */
@@ -167,7 +167,7 @@ export class Section extends ConnectableEntity {
     }
 
     this._collisionBoxNormal.shapes = rectangle.getBoundingLines();
-    // 群友需求：希望Section框扩大交互范围，标题也能拖动
+    // 群友需求：希望分组框扩大交互范围，标题也能拖动
     if (titleBarHeight > 0) {
       const newRect = new Rectangle(rectangle.location.clone(), new Vector(rectangle.size.x, titleBarHeight));
       this._collisionBoxNormal.shapes.push(newRect);

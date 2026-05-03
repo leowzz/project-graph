@@ -355,7 +355,7 @@ settings:
   sectionBackgroundFillMode:
     title: 框的背景顏色填充方式
     description: |
-      控制section框的背景顏色填充方式
+      控制分组框的背景顏色填充方式
       完整填充：填充整個框的背景（默認方式，有透明度化和遮罩順序判斷）
       僅標題條：只填充頂部標題那一小條的部分
     options:
@@ -895,7 +895,7 @@ settings:
     description: 按鈕點擊開關按鈕時關閉的聲音檔案路徑
   packEntityToSectionSoundFile:
     title: 打包成框的聲音檔
-    description: 把選中的東西打包到Section框裡時播放的聲音檔路徑
+    description: 把選中的東西打包到分组框裡時播放的聲音檔路徑
   treeGenerateDeepSoundFile:
     title: 樹狀深度生長的聲音檔
     description: 用Tab鍵做樹狀深度生長時播放的聲音檔路徑
@@ -1158,8 +1158,8 @@ keyBindsGroup:
     title: 關於文字節點
     description: 和文字節點相關的一切快捷鍵，分割、合併、建立等
   section:
-    title: Section框
-    description: Section框相關功能
+    title: 分组框
+    description: 分组框相關功能
   leftMouseModeCheckout:
     title: 左鍵模式切換
     description: 關於左鍵模式的切換
@@ -1245,11 +1245,11 @@ keyBinds:
     title: 重置缩放
     description: 將視野縮放重設為標準大小
   folderSection:
-    title: 摺疊或展開Section框
-    description: 按下後選取的 Section 框會切換摺疊或展開狀態
+    title: 摺疊或展開分组框
+    description: 按下後選取的 分组框會切換摺疊或展開狀態
   toggleSectionLock:
-    title: 鎖定/解鎖Section框
-    description: 切換選中Section框的鎖定狀態，鎖定後內部物體不可移動
+    title: 鎖定/解鎖分组框
+    description: 切換選中分组框的鎖定狀態，鎖定後內部物體不可移動
   reverseEdges:
     title: 反转连线的方向
     description: '按下後，選取的連線的方向會變成相反方向
@@ -1276,18 +1276,18 @@ keyBinds:
     title: 選取的實體之間建立無向連線
     description: 按下後，選取的兩個或多個實體之間會建立一條無向連線
   packEntityToSection:
-    title: 將選取的實體打包到Section框中
-    description: 按下後，選取的實體會自動包裹到新 Section 框中
+    title: 將選取的實體打包到分组框中
+    description: 按下後，選取的實體會自動包裹到新 分组框中
   unpackEntityFromSection:
-    title: Section框拆包，轉換為文字節點
-    description: '按下後，選取的Section框中的實體會被拆解，自身轉換成一個文字節點
+    title: 分组框拆包，轉換為文字節點
+    description: '按下後，選取的分组框中的實體會被拆解，自身轉換成一個文字節點
 
       內部的實體將會掉落在外面'
   textNodeToSection:
-    title: 將選取的文字節點轉換成Section框
-    description: '按下後，選取的文字節點會被轉換成 Section 框
+    title: 將選取的文字節點轉換成分组框
+    description: '按下後，選取的文字節點會被轉換成 分组框
 
-      可以用於 section 框的快速建立'
+      可以用於 分组框的快速建立'
   deleteSelectedStageObjects:
     title: 刪除選取的舞台物件
     description: '按下後，選取的舞台物件會被刪除
@@ -1461,16 +1461,16 @@ keyBinds:
     description: 持續按住時，所有選取的實體會持續向右加速移動，放開後緩動停止
   jumpMoveUpSelectedEntities:
     title: 跳躍向上移動所有選取的實體
-    description: 按下後，所有選取的實體會跳躍向上移動一個固定距離，能夠跳入或者跳出Section框
+    description: 按下後，所有選取的實體會跳躍向上移動一個固定距離，能夠跳入或者跳出分组框
   jumpMoveDownSelectedEntities:
     title: 跳躍向下移動所有選取的實體
-    description: 按下後，所有選取的實體會跳躍向下移動一個固定距離，能夠跳入或者跳出Section框
+    description: 按下後，所有選取的實體會跳躍向下移動一個固定距離，能夠跳入或者跳出分组框
   jumpMoveLeftSelectedEntities:
     title: 跳躍向左移動所有選取的實體
-    description: 按下後，所有選取的實體會跳躍向左移動一個固定距離，能夠跳入或者跳出 Section 框
+    description: 按下後，所有選取的實體會跳躍向左移動一個固定距離，能夠跳入或者跳出 分组框
   jumpMoveRightSelectedEntities:
     title: 跳躍向右移動所有選取的實體
-    description: 按下後，所有選取的實體會跳躍向右移動一個固定距離，能夠跳入或者跳出Section框
+    description: 按下後，所有選取的實體會跳躍向右移動一個固定距離，能夠跳入或者跳出分组框
   CameraScaleZoomIn:
     title: 視野放大
     description: 按下後，視野放大

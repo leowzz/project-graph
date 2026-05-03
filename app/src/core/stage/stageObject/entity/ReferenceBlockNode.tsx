@@ -34,7 +34,7 @@ export class ReferenceBlockNode extends ConnectableEntity implements ResizeAble 
   public fileName: string;
 
   /**
-   * 引用的Section框名，为空表示引用整个文件
+   * 引用的分组框名，为空表示引用整个文件
    */
   @serializable
   public sectionName: string;

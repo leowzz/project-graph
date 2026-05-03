@@ -171,7 +171,7 @@ export class ReferenceManager {
   public async updateCurrentProjectReference() {
     const recentFiles = await RecentFileManager.getRecentFiles();
 
-    // 遍历当前项目的每一个被引用的Section框
+    // 遍历当前项目的每一个被引用的分组框
     for (const sectionName in this.project.references.sections) {
       await this.updateOneSectionReferenceInfo(recentFiles, sectionName);
     }

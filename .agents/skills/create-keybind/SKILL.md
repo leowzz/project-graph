@@ -122,7 +122,7 @@ export const shortcutKeysGroups: ShortcutKeysGroup[] = [
 - `generateTextNodeInTree` - 生长节点
 - `generateTextNodeRoundedSelectedNode` - 在选中节点周围生成节点
 - `aboutTextNode` - 关于文本节点（分割、合并、创建等）
-- `section` - Section 框相关
+- `section` - 分组框相关
 - `edge` - 连线相关
 - `color` - 颜色相关
 - `node` - 节点相关

@@ -154,7 +154,7 @@ export class StageManager {
    * 更新节点的引用，将unknown的节点替换为真实的节点，保证对象在内存中的唯一性
    * 节点什么情况下会是unknown的？
    *
-   * 包含了对Section框的更新
+   * 包含了对分组框的更新
    * 包含了对Edge几何组偏移索引的更新（多重边/双向边自动散开）
    */
   updateReferences() {
@@ -173,7 +173,7 @@ export class StageManager {
         }
       }
     }
-    // 以下是Section框的更新，y值降序排序，从下往上排序，因为下面的往往是内层的Section
+    // 以下是分组框的更新，y值降序排序，从下往上排序，因为下面的往往是内层的Section
     for (const section of this.getSections().sort(
       (a, b) => b.collisionBox.getRectangle().location.y - a.collisionBox.getRectangle().location.y,
     )) {

@@ -114,10 +114,10 @@ export namespace GenerateScreenshot {
   }
 
   /**
-   * 根据文件名和Section框名生成截图
+   * 根据文件名和分组框名生成截图
    *
    * @param fileName 文件名
-   * @param sectionName Section框名
+   * @param sectionName 分组框名
    * @param maxDimension 自定义最大边长度，默认为1920
    * @param currentProjectPath 当前项目路径（用于在引用文件夹中优先查找）
    * @returns 截图的Blob对象
@@ -139,7 +139,7 @@ export namespace GenerateScreenshot {
       // 查找指定名称的Section
       const targetSection = project.stage.find((obj) => obj instanceof Section && obj.text === sectionName);
       if (!targetSection) {
-        console.error(`Section框 【${sectionName}】 没有发现 in file ${fileName}`);
+        console.error(`分组框 【${sectionName}】 没有发现 in file ${fileName}`);
         return undefined;
       }
 

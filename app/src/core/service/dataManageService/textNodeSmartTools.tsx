@@ -573,7 +573,7 @@ export namespace TextNodeSmartTools {
    * 1. 解析 [[文件名]] 或 [[文件名#Section名]]
    * 2. 收集原节点上的所有连线（用于后续迁移）
    * 3. 创建引用块节点
-   * 4. 用 Section 框包裹引用块，以文件名作为框标题
+   * 4. 用 分组框包裹引用块，以文件名作为框标题
    * 5. 将被引用 Section 的文字提取到 details，供搜索使用
    * 6. 迁移原节点的所有连线到新引用块
    * 7. 删除原文本节点
@@ -636,7 +636,7 @@ export namespace TextNodeSmartTools {
 
     project.stageManager.add(referenceBlock);
 
-    // 步骤3：用 Section 框包裹引用块，以文件名作为标题
+    // 步骤3：用 分组框包裹引用块，以文件名作为标题
     const section = Section.fromEntities(project, [referenceBlock]);
     section.rename(fileName);
     project.stageManager.add(section);

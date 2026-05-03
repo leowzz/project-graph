@@ -37,7 +37,7 @@ export class SelectChangeEngine {
       return;
     }
 
-    // Section 进入逻辑：选中 Section 框时，按「下」键进入内部最靠上的子实体
+    // Section 进入逻辑：选中 分组框时，按「下」键进入内部最靠上的子实体
     if (selectedNode instanceof Section) {
       const visibleChildren = selectedNode.children.filter(
         (child) => !child.isHiddenBySectionCollapse && child instanceof ConnectableEntity,
@@ -86,10 +86,10 @@ export class SelectChangeEngine {
    *
    * 层级规则：
    * - 在 Section 内部 → 候选集为父 Section 的直接子节点（不含自身）
-   * - 在顶层（无父 Section）→ 候选集为无父 Section 的顶层节点（含 Section 框本体，但不含其内部子节点）
+   * - 在顶层（无父 Section）→ 候选集为无父 Section 的顶层节点（含 分组框本体，但不含其内部子节点）
    *
    * 跳出规则（Section 内同层无候选时）：
-   * - 上/左/右 → 选中父 Section 框本体
+   * - 上/左/右 → 选中父 分组框本体
    * - 下 → 以父 Section 为基准在父层继续向下导航，避免落回 Section 本体后死循环
    */
   private navigateInDirection(selectedNode: ConnectableEntity, direction: Direction): ConnectableEntity | null {
@@ -115,7 +115,7 @@ export class SelectChangeEngine {
       return null;
     }
 
-    // 上/左/右 跳出：选中父 Section 框本体
+    // 上/左/右 跳出：选中父 分组框本体
     if (direction !== Direction.Down) {
       return parentSection;
     }
@@ -161,7 +161,7 @@ export class SelectChangeEngine {
   }
 
   /**
-   * 获取顶层候选集：无父 Section 的节点（Section 框本体算顶层，其内部子节点不算），排除指定节点自身。
+   * 获取顶层候选集：无父 Section 的节点（分组框本体算顶层，其内部子节点不算），排除指定节点自身。
    */
   private getTopLevelCandidates(excludeNode: ConnectableEntity): ConnectableEntity[] {
     return this.project.stageManager

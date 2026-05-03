@@ -15,9 +15,9 @@ export namespace CrossFileContentQuery {
   const CACHE_TIME = 10000;
 
   /**
-   * 获取指定.prg 文件中的所有的 Section框名称 (有缓存机制)
+   * 获取指定.prg 文件中的所有的 分组框名称 (有缓存机制)
    * @param fileName 文件名
-   * @returns Section框名称数组
+   * @returns 分组框名称数组
    */
   export async function getSectionsByFileName(fileName: string): Promise<string[]> {
     // 检查缓存是否存在且未过期
@@ -58,7 +58,7 @@ export namespace CrossFileContentQuery {
 
       return sections;
     } catch (error) {
-      console.error("获取文件中的Section框失败", error);
+      console.error("获取文件中的分组框失败", error);
       // 错误时也缓存空结果，避免频繁重试
       sectionCache.set(fileName, { sections: [], timestamp: Date.now() });
       return [];

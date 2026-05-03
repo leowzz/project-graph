@@ -464,7 +464,7 @@ export async function generateKeyboardLayout(project: Project): Promise<void> {
       }
     }
 
-    // 创建Section框
+    // 创建分组框
     const sectionHeight = currentY + maxRowHeight - currentSectionY + sectionPadding;
     const sectionWidth =
       Math.max(...sectionNodes.map((node) => node.collisionBox.getRectangle().right)) -

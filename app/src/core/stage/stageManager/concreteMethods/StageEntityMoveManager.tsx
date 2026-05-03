@@ -109,7 +109,7 @@ export class EntityMoveManager {
    * 让某一个实体移动一小段距离
    * @param entity
    * @param delta
-   * @param isAutoAdjustSection 移动的时候是否触发section框的弹性调整
+   * @param isAutoAdjustSection 移动的时候是否触发分组框的弹性调整
    */
   moveEntityUtils(entity: Entity, delta: Vector, isAutoAdjustSection: boolean = true) {
     // 检查实体是否可以被移动（锁定状态检查）

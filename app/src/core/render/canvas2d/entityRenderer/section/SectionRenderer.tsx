@@ -136,7 +136,7 @@ export class SectionRenderer {
     // TODO: 性能有待优化
     // 计算视野范围矩形
     const viewRect = this.project.renderer.getCoverWorldRectangle();
-    // 计算section框的最长边
+    // 计算分组框的最长边
     const sectionMaxSide = Math.max(section.rectangle.size.x, section.rectangle.size.y);
     // 计算视野范围矩形的最长边
     const viewMaxSide = Math.max(viewRect.size.x, viewRect.size.y);
@@ -180,7 +180,7 @@ export class SectionRenderer {
     // TODO: 性能有待优化
     // 计算视野范围矩形
     const viewRect = this.project.renderer.getCoverWorldRectangle();
-    // 计算section框的最长边
+    // 计算分组框的最长边
     const sectionMaxSide = Math.max(section.rectangle.size.x, section.rectangle.size.y);
     // 计算视野范围矩形的最长边
     const viewMaxSide = Math.max(viewRect.size.x, viewRect.size.y);
