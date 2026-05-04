@@ -59,7 +59,9 @@ export default function ExtensionsTab() {
                     return (
                       <SidebarMenuItem key={id}>
                         <SidebarMenuButton onClick={() => setSelectedId(id)} isActive={selectedId === id}>
-                          {ext.iconSvgText ? (
+                          {ext.iconBlobUrl ? (
+                            <img src={ext.iconBlobUrl} className="size-4 shrink-0 object-contain" alt="" />
+                          ) : ext.iconSvgText ? (
                             <span className="size-4 shrink-0" dangerouslySetInnerHTML={{ __html: ext.iconSvgText }} />
                           ) : ext.iconDataUrl ? (
                             <img src={ext.iconDataUrl} className="size-4 shrink-0 object-contain" alt="" />

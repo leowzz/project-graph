@@ -21,18 +21,18 @@ import { Tutorials } from "../service/Tourials";
 import { Tab } from "../Tab";
 import { ExtensionKeyBindManager } from "./ExtensionKeyBindManager";
 import { ExtensionManager } from "./ExtensionManager";
-import { getMimeType, prepareSvgForInline, uint8ArrayToBase64 } from "./ExtensionUtils";
+import { getMimeType } from "./ExtensionUtils";
 
 export class Extension extends Tab {
   public metadata: PrgMetadata = { version: "2.0.0" };
   public readmeContent: string = "";
   public code: string = "";
-  /** 非 SVG 图标的 base64 data URL，加载失败或未配置时为 null */
-  public iconDataUrl: string | null = null;
-  /** SVG 图标的原始文本（inline 渲染用），非 SVG 或加载失败时为 null */
-  public iconSvgText: string | null = null;
+  /** 扩展图标的 blob URL，用于显示；加载失败或未配置时为 null */
+  public iconBlobUrl: string | null = null;
   /** 扩展自定义图标的原始字节，安装时用于写入目标目录 */
   private iconRawData: Uint8Array | null = null;
+  /** 图标文件名（如 icon.png），用于安装时确定写入路径 */
+  private iconFileName: string | null = null;
 
   public stage: any[] = []; // 占位以防止部分 Service 访问报错
   private _uri: URI;
@@ -74,22 +74,18 @@ export class Extension extends Tab {
         }
       }
 
-      // 加载自定义图标（从 zip 包内读取）
-      const iconPath = this.metadata.extension?.icon;
-      if (iconPath) {
-        const iconEntry = entries.find((e) => e.filename === iconPath);
-        if (iconEntry) {
-          try {
-            const iconData = await iconEntry.getData!(new Uint8ArrayWriter());
-            this.iconRawData = iconData;
-            if (getMimeType(iconPath) === "image/svg+xml") {
-              this.iconSvgText = prepareSvgForInline(new TextDecoder().decode(iconData));
-            } else {
-              this.iconDataUrl = `data:${getMimeType(iconPath)};base64,${uint8ArrayToBase64(iconData)}`;
-            }
-          } catch (e) {
-            console.warn("加载扩展图标失败（zip）", e);
-          }
+      // 加载自定义图标（从 zip 包根目录读取 icon.png/svg/jpg/webp）
+      const iconNames = ["icon.svg", "icon.webp", "icon.png", "icon.jpg"];
+      const iconEntry = entries.find((e) => iconNames.includes(e.filename));
+      if (iconEntry) {
+        try {
+          const iconData = await iconEntry.getData!(new Uint8ArrayWriter());
+          this.iconRawData = iconData;
+          this.iconFileName = iconEntry.filename;
+          const mimeType = getMimeType(iconEntry.filename);
+          this.iconBlobUrl = URL.createObjectURL(new Blob([iconData], { type: mimeType }));
+        } catch (e) {
+          console.warn("加载扩展图标失败（zip）", e);
         }
       }
 
@@ -122,20 +118,19 @@ export class Extension extends Tab {
         toast.error("加载扩展失败，请检查文件结构是否正确");
       }
 
-      // 加载自定义图标（从文件夹中读取）
-      const iconPath = this.metadata.extension?.icon;
-      if (iconPath) {
+      // 加载自定义图标（从文件夹根目录读取 icon.png/svg/jpg/webp）
+      const iconNames = ["icon.svg", "icon.webp", "icon.png", "icon.jpg"];
+      for (const iconName of iconNames) {
         try {
-          const iconUri = this.uri.with({ path: this.uri.path + "/" + iconPath });
+          const iconUri = this.uri.with({ path: this.uri.path + "/" + iconName });
           const iconData = await fs.read(iconUri);
           this.iconRawData = iconData;
-          if (getMimeType(iconPath) === "image/svg+xml") {
-            this.iconSvgText = prepareSvgForInline(new TextDecoder().decode(iconData));
-          } else {
-            this.iconDataUrl = `data:${getMimeType(iconPath)};base64,${uint8ArrayToBase64(iconData)}`;
-          }
-        } catch (e) {
-          console.warn("加载扩展图标失败（文件夹）", e);
+          this.iconFileName = iconName;
+          const mimeType = getMimeType(iconName);
+          this.iconBlobUrl = URL.createObjectURL(new Blob([iconData], { type: mimeType }));
+          break;
+        } catch {
+          // 尝试下一个文件名
         }
       }
 
@@ -177,10 +172,8 @@ export class Extension extends Tab {
           <div className="flex items-start justify-between border-b pb-6">
             <div className="space-y-2">
               <div className="flex items-center gap-4">
-                {self.iconSvgText ? (
-                  <span className="size-12 shrink-0" dangerouslySetInnerHTML={{ __html: self.iconSvgText }} />
-                ) : self.iconDataUrl ? (
-                  <img src={self.iconDataUrl} className="size-12 shrink-0 object-contain" alt="扩展图标" />
+                {self.iconBlobUrl ? (
+                  <img src={self.iconBlobUrl} className="size-12 shrink-0 object-contain" alt="扩展图标" />
                 ) : (
                   <Blocks className="size-12 shrink-0 opacity-40" />
                 )}
@@ -257,14 +250,9 @@ export class Extension extends Tab {
                     );
                     await writeFile(await join(base, "extension.js"), new TextEncoder().encode(self.code));
                     await writeFile(await join(base, "README.md"), new TextEncoder().encode(self.readmeContent));
-                    // 安装图标文件（需要按路径创建子目录）
-                    const iconPath = self.metadata.extension?.icon;
-                    if (iconPath && self.iconRawData) {
-                      const iconDirParts = iconPath.split("/").slice(0, -1);
-                      if (iconDirParts.length > 0) {
-                        await mkdir(await join(base, ...iconDirParts), { recursive: true });
-                      }
-                      await writeFile(await join(base, ...iconPath.split("/")), self.iconRawData);
+                    // 安装图标文件（固定文件名，直接写入根目录）
+                    if (self.iconFileName && self.iconRawData) {
+                      await writeFile(await join(base, self.iconFileName), self.iconRawData);
                     }
                     setInstalled(true);
                     toast.success("扩展已安装");
@@ -419,20 +407,8 @@ export class Extension extends Tab {
   }
 
   get icon() {
-    if (this.iconSvgText) {
-      const svg = this.iconSvgText;
-      return function ExtensionIcon({ className }: { className?: string }) {
-        return (
-          <span
-            className={className}
-            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-            dangerouslySetInnerHTML={{ __html: svg }}
-          />
-        );
-      };
-    }
-    if (this.iconDataUrl) {
-      const url = this.iconDataUrl;
+    if (this.iconBlobUrl) {
+      const url = this.iconBlobUrl;
       return function ExtensionIcon({ className }: { className?: string }) {
         return <img src={url} className={className} style={{ objectFit: "contain" }} alt="" />;
       };
