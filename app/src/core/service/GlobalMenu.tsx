@@ -259,8 +259,17 @@ export function GlobalMenu() {
             }}
           >
             <FolderOpen />
-            {t("file.open")} （.prg / .json）
+            {t("file.open")} （.prg）
             {openFileKey && <MenubarShortcut>{openFileKey}</MenubarShortcut>}
+          </Item>
+          <Item
+            onClick={async () => {
+              await onUpgradeOldJson();
+              await refresh();
+            }}
+          >
+            <FileInput />
+            升级旧版 json 文件为 .prg
           </Item>
           <Item
             disabled={!activeProject || activeProject.isDraft}
@@ -1705,63 +1714,10 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
     const path = await open({
       directory: false,
       multiple: false,
-      filters: [{ name: "工程文件", extensions: ["prg", "json"] }],
+      filters: [{ name: "工程文件", extensions: ["prg"] }],
     });
     if (!path) return;
     uri = URI.file(path);
-  }
-  let upgraded: ReturnType<typeof ProjectUpgrader.convertVAnyToN1> extends Promise<infer T> ? T : never;
-
-  // 读取文件内容并判断格式
-  const fileData = await readFile(uri.fsPath);
-
-  // 检查是否是以 '{' 开头的 JSON 文件
-  if (fileData[0] === 0x7b) {
-    // 0x7B 是 '{' 的 ASCII 码
-    const content = new TextDecoder().decode(fileData);
-    const json = JSON.parse(content);
-    const t = performance.now();
-    upgraded = await toast
-      .promise(ProjectUpgrader.convertVAnyToN1(json, uri), {
-        loading: "正在转换旧版项目文件...",
-        success: () => {
-          const time = performance.now() - t;
-          Telemetry.event("转换vany->n1", { time, length: content.length });
-          return `转换成功，耗时 ${time}ms`;
-        },
-        error: (e) => {
-          Telemetry.event("转换vany->n1报错", { error: String(e) });
-          return `转换失败，已发送错误报告，可在群内联系开发者\n${String(e)}`;
-        },
-      })
-      .unwrap();
-    toast.info("您正在尝试导入旧版的文件！稍后如果点击了保存文件，文件会保存为相同文件夹内的 .prg 后缀的文件");
-    uri = uri.with({ path: uri.path.replace(/\.json$/, ".prg") });
-  }
-  // 检查是否是以 0x91 0x86 开头的 msgpack 数据
-  if (fileData.length >= 2 && fileData[0] === 0x84 && fileData[1] === 0xa7) {
-    const decoder = new Decoder();
-    const decodedData = decoder.decode(fileData);
-    if (typeof decodedData !== "object" || decodedData === null) {
-      throw new Error("msgpack 解码结果不是有效的对象");
-    }
-    const t = performance.now();
-    upgraded = await toast
-      .promise(ProjectUpgrader.convertVAnyToN1(decodedData as Record<string, any>, uri), {
-        loading: "正在转换旧版项目文件...",
-        success: () => {
-          const time = performance.now() - t;
-          Telemetry.event("转换vany->n1", { time, length: fileData.length });
-          return `转换成功，耗时 ${time}ms`;
-        },
-        error: (e) => {
-          Telemetry.event("转换vany->n1报错", { error: String(e) });
-          return `转换失败，已发送错误报告，可在群内联系开发者\n${String(e)}`;
-        },
-      })
-      .unwrap();
-    toast.info("您正在尝试导入旧版的文件！稍后如果点击了保存文件，文件会保存为相同文件夹内的 .prg 后缀的文件");
-    uri = uri.with({ path: uri.path.replace(/\.json$/, ".prg") });
   }
 
   if (
@@ -1817,12 +1773,6 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
         {
           loading: "正在打开文件...",
           success: async () => {
-            if (tab instanceof Project && upgraded) {
-              tab.stage = deserialize(upgraded.data, tab);
-              tab.attachments = upgraded.attachments;
-              // 更新引用关系，包括双向线的偏移状态
-              tab.stageManager.updateReferences();
-            }
             const readFileTime = performance.now() - t;
             store.set(tabsAtom, [...store.get(tabsAtom), tab]);
             store.set(activeTabAtom, tab);
@@ -1929,6 +1879,93 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
     throw e;
   }
   return tab as any;
+}
+
+/**
+ * 将旧版 JSON（1.x 系列）或旧版 msgpack 格式文件升级为新版 .prg 文件，
+ * 生成在同一目录下，完成后弹窗提示并询问是否立即打开。
+ */
+export async function onUpgradeOldJson() {
+  const path = await open({
+    directory: false,
+    multiple: false,
+    filters: [{ name: "旧版工程文件", extensions: ["json"] }],
+  });
+  if (!path) return;
+
+  const sourceUri = URI.file(path);
+  const fileData = await readFile(sourceUri.fsPath);
+
+  let rawData: Record<string, any>;
+  if (fileData[0] === 0x7b) {
+    try {
+      rawData = JSON.parse(new TextDecoder().decode(fileData));
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      await Dialog.confirm("JSON解析出错", `错误信息：\n${errorMessage}`);
+      return;
+    }
+  } else if (fileData.length >= 2 && fileData[0] === 0x84 && fileData[1] === 0xa7) {
+    // 旧版 msgpack（魔数 0x84 0xa7 对应 4-element fixmap）
+    const decoded = new Decoder().decode(fileData);
+    if (typeof decoded !== "object" || decoded === null) {
+      toast.error("文件格式无效，无法解析");
+      return;
+    }
+    rawData = decoded as Record<string, any>;
+  } else {
+    toast.error("所选文件不是可识别的旧版工程文件（需要 JSON 格式）");
+    return;
+  }
+
+  const t = performance.now();
+  const upgraded = await toast
+    .promise(ProjectUpgrader.convertVAnyToN1(rawData, sourceUri), {
+      loading: "正在升级旧版工程文件...",
+      success: () => {
+        const time = performance.now() - t;
+        Telemetry.event("升级json->prg", { time, length: fileData.length });
+        return `转换成功，耗时 ${time}ms`;
+      },
+      error: (e) => {
+        Telemetry.event("升级json->prg报错", { error: String(e) });
+        return `转换失败，已发送错误报告，可在群内联系开发者\n${String(e)}`;
+      },
+    })
+    .unwrap()
+    .catch(() => null);
+  if (!upgraded) return;
+
+  const prgUri = sourceUri.with({ path: sourceUri.path.replace(/\.json$/, ".prg") });
+  const prgPath = prgUri.fsPath;
+
+  if (await exists(prgPath)) {
+    const overwrite = await Dialog.confirm(
+      "目标文件已存在",
+      `文件 "${prgPath.split(/[\\/]/).pop()}" 已存在，是否覆盖？`,
+      { destructive: true },
+    );
+    if (!overwrite) return;
+  }
+
+  // loadAllServices + stageManager.updateReferences() 是写入前必须的初始化步骤
+  const tempProject = new Project(prgUri);
+  loadAllServicesBeforeInit(tempProject);
+  await tempProject.init();
+  loadAllServicesAfterInit(tempProject);
+  tempProject.stage = deserialize(upgraded.data, tempProject);
+  tempProject.attachments = upgraded.attachments;
+  tempProject.stageManager.updateReferences();
+  await tempProject.save();
+  await tempProject.dispose();
+
+  const shouldOpen = await Dialog.confirm(
+    "升级成功！",
+    `已在原文件旁边生成了新文件：\n${prgPath}\n\n是否立即打开该文件？`,
+  );
+  if (shouldOpen) {
+    await onOpenFile(prgUri, "upgradeFromJson");
+  }
 }
 
 /**

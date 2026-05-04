@@ -433,8 +433,14 @@ export namespace ProjectUpgrader {
     return [data, { ...metadata, version: "2.3.0" }];
   }
 
+  /**
+   * 升级1.x版本的json数据到 prg
+   * @param json
+   * @param uri
+   * @returns
+   */
   export async function convertVAnyToN1(json: Record<string, any>, uri: URI) {
-    // 升级json数据到最新版本
+    // 升级json数据到最新json版本
     json = ProjectUpgrader.upgradeVAnyToVLatest(json);
     let isHaveImageNode = false;
     const uuidMap = new Map<string, Record<string, any>>();
@@ -444,18 +450,40 @@ export namespace ProjectUpgrader {
     const basePath = new Path(uri.fsPath).parent;
 
     // Helper functions for repeated structures
-    const toColor = (colorArr: number[]) => ({
-      _: "Color",
-      r: colorArr[0],
-      g: colorArr[1],
-      b: colorArr[2],
-      a: colorArr[3],
-    });
-    const toVector = (vectorArr: number[]) => ({
-      _: "Vector",
-      x: vectorArr[0],
-      y: vectorArr[1],
-    });
+    const toColor = (colorArr?: number[]) => {
+      if (colorArr && colorArr.length === 4 && colorArr.every((c) => typeof c === "number")) {
+        return {
+          _: "Color",
+          r: colorArr[0],
+          g: colorArr[1],
+          b: colorArr[2],
+          a: colorArr[3],
+        };
+      } else {
+        return {
+          _: "Color",
+          r: 0,
+          g: 0,
+          b: 0,
+          a: 0,
+        };
+      }
+    };
+    const toVector = (vectorArr?: number[]) => {
+      if (vectorArr && vectorArr.length === 2 && vectorArr.every((c) => typeof c === "number")) {
+        return {
+          _: "Vector",
+          x: vectorArr[0],
+          y: vectorArr[1],
+        };
+      } else {
+        return {
+          _: "Vector",
+          x: 0,
+          y: 0,
+        };
+      }
+    };
 
     // Recursively convert all entities
     async function convertEntityVAnyToN1(
