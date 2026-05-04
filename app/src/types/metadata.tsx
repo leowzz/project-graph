@@ -7,6 +7,11 @@ export interface ExtensionMetadata {
   description: string;
   version: string;
   author: string; // 格式: "name <email>"
+  /**
+   * 扩展图标的相对路径，相对于扩展包根目录
+   * 支持 png、jpg、svg、webp 格式，例如 "resources/icon.png"
+   */
+  icon?: string;
 }
 
 /**

@@ -59,7 +59,13 @@ export default function ExtensionsTab() {
                     return (
                       <SidebarMenuItem key={id}>
                         <SidebarMenuButton onClick={() => setSelectedId(id)} isActive={selectedId === id}>
-                          <Blocks />
+                          {ext.iconSvgText ? (
+                            <span className="size-4 shrink-0" dangerouslySetInnerHTML={{ __html: ext.iconSvgText }} />
+                          ) : ext.iconDataUrl ? (
+                            <img src={ext.iconDataUrl} className="size-4 shrink-0 object-contain" alt="" />
+                          ) : (
+                            <Blocks />
+                          )}
                           <span className="flex-1 truncate">{metadata?.name || "未知扩展"}</span>
                           <span className="opacity-50">v{metadata?.version || "0.0.0"}</span>
                         </SidebarMenuButton>
