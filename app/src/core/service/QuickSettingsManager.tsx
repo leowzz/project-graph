@@ -22,7 +22,7 @@ export namespace QuickSettingsManager {
     /**
      * 设置项的 key（支持 boolean、enum、number 类型的设置项）
      */
-    settingKey: keyof ReturnType<typeof settingsSchema._def.shape>;
+    settingKey: keyof typeof settingsSchema.shape;
   };
 
   /**
@@ -80,9 +80,7 @@ export namespace QuickSettingsManager {
   /**
    * 删除一个快捷设置项
    */
-  export async function removeQuickSetting(
-    settingKey: keyof ReturnType<typeof settingsSchema._def.shape>,
-  ): Promise<void> {
+  export async function removeQuickSetting(settingKey: keyof typeof settingsSchema.shape): Promise<void> {
     const existingItems = await getQuickSettings();
     const filtered = existingItems.filter((it) => it.settingKey !== settingKey);
     await setQuickSettings(filtered);
@@ -108,7 +106,7 @@ export namespace QuickSettingsManager {
    * 获取设置项的类型
    */
   export function getSettingType(settingKey: string): SettingType {
-    const schema = settingsSchema._def.shape()[settingKey as keyof typeof settingsSchema._def.shape];
+    const schema = settingsSchema.shape[settingKey as keyof typeof settingsSchema.shape];
     if (!schema) return "unknown";
     const inner = unwrapSchema(schema);
     if (inner instanceof z.ZodBoolean) return "boolean";
@@ -151,32 +149,28 @@ export namespace QuickSettingsManager {
   /**
    * 获取所有可用的布尔类型设置项（向后兼容保留）
    */
-  export function getAllAvailableBooleanSettings(): Array<keyof ReturnType<typeof settingsSchema._def.shape>> {
-    const schema = settingsSchema._def.shape();
-    return Object.keys(schema).filter((key) => isValidBooleanSetting(key)) as Array<
-      keyof ReturnType<typeof settingsSchema._def.shape>
-    >;
+  export function getAllAvailableBooleanSettings(): Array<keyof typeof settingsSchema.shape> {
+    const schema = settingsSchema.shape;
+    return Object.keys(schema).filter((key) => isValidBooleanSetting(key)) as Array<keyof typeof settingsSchema.shape>;
   }
 
   /**
    * 获取所有可加入快捷栏的设置项（boolean + enum + number，且有图标）
    */
-  export function getAllAvailableSettings(): Array<keyof ReturnType<typeof settingsSchema._def.shape>> {
-    const schema = settingsSchema._def.shape();
-    return Object.keys(schema).filter((key) => isValidQuickSetting(key)) as Array<
-      keyof ReturnType<typeof settingsSchema._def.shape>
-    >;
+  export function getAllAvailableSettings(): Array<keyof typeof settingsSchema.shape> {
+    const schema = settingsSchema.shape;
+    return Object.keys(schema).filter((key) => isValidQuickSetting(key)) as Array<keyof typeof settingsSchema.shape>;
   }
 
   /**
    * 从 schema 中提取枚举选项
    */
   export function getEnumOptions(settingKey: string): string[] {
-    const schema = settingsSchema._def.shape()[settingKey as keyof typeof settingsSchema._def.shape];
+    const schema = settingsSchema.shape[settingKey as keyof typeof settingsSchema.shape];
     if (!schema) return [];
     const inner = unwrapSchema(schema);
     if (!(inner instanceof z.ZodUnion)) return [];
-    return inner._def.options.map((opt: any) => opt._def.value as string);
+    return inner._def.options.map((opt: any) => opt._def.values[0] as string);
   }
 
   /**
@@ -188,20 +182,16 @@ export namespace QuickSettingsManager {
     step: number;
     hasRange: boolean;
   } {
-    const schema = settingsSchema._def.shape()[settingKey as keyof typeof settingsSchema._def.shape];
+    const schema = settingsSchema.shape[settingKey as keyof typeof settingsSchema.shape];
     if (!schema) return { min: null, max: null, step: 0.01, hasRange: false };
     const inner = unwrapSchema(schema);
     if (!(inner instanceof z.ZodNumber)) return { min: null, max: null, step: 0.01, hasRange: false };
 
-    const checks = inner._def.checks as Array<{ kind: string; value?: number }>;
-    const minCheck = checks.find((c) => c.kind === "min");
-    const maxCheck = checks.find((c) => c.kind === "max");
-    const intCheck = checks.find((c) => c.kind === "int");
-    const multipleOfCheck = checks.find((c) => c.kind === "multipleOf");
-
-    const min = minCheck?.value ?? null;
-    const max = maxCheck?.value ?? null;
-    const step = intCheck ? 1 : (multipleOfCheck?.value ?? 0.01);
+    const bag = (inner as any)._zod?.bag ?? {};
+    const min = bag.minimum ?? null;
+    const max = bag.maximum ?? null;
+    const isInt = bag.format === "int";
+    const step = isInt ? 1 : 0.01;
     const hasRange = min !== null && max !== null;
 
     return { min, max, step, hasRange };

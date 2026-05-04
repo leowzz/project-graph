@@ -23,7 +23,7 @@ function BooleanQuickSettingControl({
   settingKey,
   isHovered,
 }: {
-  settingKey: keyof ReturnType<typeof settingsSchema._def.shape>;
+  settingKey: keyof typeof settingsSchema.shape;
   isHovered: boolean;
 }) {
   const [value, setValue] = useState<boolean>(Settings[settingKey] as boolean);
@@ -59,7 +59,7 @@ function EnumQuickSettingControl({
   settingKey,
   isHovered,
 }: {
-  settingKey: keyof ReturnType<typeof settingsSchema._def.shape>;
+  settingKey: keyof typeof settingsSchema.shape;
   isHovered: boolean;
 }) {
   const { t } = useTranslation("settings");
@@ -106,7 +106,7 @@ function NumberQuickSettingControl({
   settingKey,
   isHovered,
 }: {
-  settingKey: keyof ReturnType<typeof settingsSchema._def.shape>;
+  settingKey: keyof typeof settingsSchema.shape;
   isHovered: boolean;
 }) {
   const [value, setValue] = useState<number>(Settings[settingKey] as number);
@@ -172,7 +172,7 @@ function QuickSettingButton({
   settingKey,
   isHovered,
 }: {
-  settingKey: keyof ReturnType<typeof settingsSchema._def.shape>;
+  settingKey: keyof typeof settingsSchema.shape;
   isHovered: boolean;
 }) {
   const { t } = useTranslation("settings");
@@ -275,7 +275,7 @@ export default function RightToolbar() {
   return (
     <div
       className={cn(
-        "absolute right-2 top-1/2 flex -translate-y-1/2 transform flex-col items-center justify-center transition-all hover:opacity-100",
+        "absolute top-1/2 right-2 flex -translate-y-1/2 transform flex-col items-center justify-center transition-all hover:opacity-100",
         isClassroomMode && "opacity-0",
       )}
     >
