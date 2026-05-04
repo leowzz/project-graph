@@ -226,6 +226,13 @@ export class Extension extends Tab {
               )}
             </TabsList>
             <TabsContent value="readme">
+              {self.readmeContent.trim() === "" ? (
+                <p className="text-muted-foreground">此扩展没有 README 文件</p>
+              ) : (
+                <div className="prose max-w-none">
+                  <Markdown source={self.readmeContent} />
+                </div>
+              )}
               <Markdown source={self.readmeContent} />
             </TabsContent>
             {installed && (
