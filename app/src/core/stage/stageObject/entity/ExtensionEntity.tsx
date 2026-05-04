@@ -2,7 +2,7 @@ import type { Project } from "@/core/Project";
 import { Vector } from "@graphif/data-structures";
 import { id, passExtraAtArg1, passObject, serializable } from "@graphif/serializer";
 import { Rectangle } from "@graphif/shapes";
-import { Entity } from "../abstract/StageEntity";
+import { ConnectableEntity } from "../abstract/ConnectableEntity";
 import { CollisionBox } from "../collisionBox/collisionBox";
 
 export interface ExtensionEntityConfig {
@@ -12,7 +12,11 @@ export interface ExtensionEntityConfig {
 
 @passExtraAtArg1
 @passObject
-export class ExtensionEntity extends Entity {
+export class ExtensionEntity extends ConnectableEntity {
+  public get geometryCenter(): Vector {
+    return this.rectangle.center;
+  }
+
   @id
   @serializable
   uuid: string;

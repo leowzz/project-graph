@@ -93,6 +93,14 @@ export function extensionHostApiFactory(extension: Extension) {
       return JSON.parse(text);
     },
 
+    async fetch_binary(url: string) {
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = new Uint8Array(arrayBuffer);
+      const mimeType = response.headers.get("content-type") || "image/png";
+      return { buffer, mimeType };
+    },
+
     //region 系统命令
     async shell_execute(program: string, args?: string[], stdin?: string) {
       return invoke<{ code: number | null; stdout: string; stderr: string }>("run_command", {
