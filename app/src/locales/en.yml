@@ -1366,6 +1366,18 @@ keyBinds:
     description: |
       Press Shift+Q to add the node pointed by the screen center crosshair to current selection
       If the node is already selected, deselect it
+  generateTreeBySelectedTextNodeTextWithAI:
+    title: "AI: Generate Tree from Selected Text"
+    description: |
+      Fill the AI panel with selected text nodes and a preset prompt to generate a tree-structured node graph.
+  generateNetBySelectedTextNodeTextWithAI:
+    title: "AI: Generate Network from Selected Text"
+    description: |
+      Fill the AI panel with selected text nodes and a preset prompt to generate a network relationship graph.
+  generateSummaryBySelectedTextNodeTextWithAI:
+    title: "AI: Summarize Selected Text"
+    description: |
+      Fill the AI panel with selected text nodes and a preset prompt to summarize the core content.
   createTextNodeFromCameraLocation:
     title: Create Text Node at Camera Center
     description: |

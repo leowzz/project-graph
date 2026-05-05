@@ -1435,6 +1435,18 @@ keyBinds:
   selectAll:
     title: Pilih Semua
     description: Setelah ditekan, semua node dan garis akan dipilih
+  generateTreeBySelectedTextNodeTextWithAI:
+    title: "AI: Buat Struktur Pohon"
+    description: |
+      Isi panel AI dengan konten node teks yang dipilih dan prompt bawaan untuk menghasilkan grafik node berbentuk pohon.
+  generateNetBySelectedTextNodeTextWithAI:
+    title: "AI: Buat Grafik Relasi Jaringan"
+    description: |
+      Isi panel AI dengan konten node teks yang dipilih dan prompt bawaan untuk menghasilkan grafik relasi berbentuk jaringan.
+  generateSummaryBySelectedTextNodeTextWithAI:
+    title: "AI: Buat Ringkasan"
+    description: |
+      Isi panel AI dengan konten node teks yang dipilih dan prompt bawaan untuk meringkas inti konten.
   createTextNodeFromCameraLocation:
     title: Buat Node Teks di Posisi Pusat Tampilan
     description: |

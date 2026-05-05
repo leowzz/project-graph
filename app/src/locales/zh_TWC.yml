@@ -1401,6 +1401,18 @@ keyBinds:
     description: |
       將螢幕中心十字準心指向的節點加入到目前選取中
       如果該節點已被選取，則取消選取
+  generateTreeBySelectedTextNodeTextWithAI:
+    title: AI：生成樹狀結構
+    description: |
+      將選取的文字節點內容填入 AI 面板，並預置提示詞用於生成樹狀節點圖
+  generateNetBySelectedTextNodeTextWithAI:
+    title: AI：生成網狀關係圖
+    description: |
+      將選取的文字節點內容填入 AI 面板，並預置提示詞用於生成網狀關係圖
+  generateSummaryBySelectedTextNodeTextWithAI:
+    title: AI：生成摘要
+    description: |
+      將選取的文字節點內容填入 AI 面板，並預置提示詞用於總結核心內容
   createTextNodeFromCameraLocation:
     title: 在視野中心位置建立文字節點
     description: '按下後，在目前視野中心的位置建立一個文字節點
