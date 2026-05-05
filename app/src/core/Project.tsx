@@ -82,6 +82,7 @@ import mime from "mime";
 import React from "react";
 import { URI } from "vscode-uri";
 import { AutoSaveBackupService } from "./service/dataFileService/AutoSaveBackupService";
+import { generateThumbnail } from "./service/dataGenerateService/generateThumbnail";
 import { ProjectUpgrader } from "./stage/ProjectUpgrader";
 import { ReferenceManager } from "./stage/stageManager/concreteMethods/StageReferenceManager";
 import { Tab } from "./Tab";
@@ -404,6 +405,15 @@ export class Project extends Tab {
     // 添加附件
     for (const [uuid, attachment] of this.attachments.entries()) {
       writer.add(`attachments/${uuid}.${mime.getExtension(attachment.type)}`, new BlobReader(attachment));
+    }
+    // 添加缩略图
+    try {
+      const thumbnailBlob = await generateThumbnail(this);
+      if (thumbnailBlob) {
+        writer.add("thumbnail.png", new BlobReader(thumbnailBlob));
+      }
+    } catch {
+      // 缩略图生成失败不阻止保存
     }
     await writer.close();
 
