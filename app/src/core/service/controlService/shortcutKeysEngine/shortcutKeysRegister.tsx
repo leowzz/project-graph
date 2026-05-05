@@ -10,48 +10,212 @@ import { PenStrokeMethods } from "@/core/stage/stageManager/basicMethods/PenStro
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
+import { ReferenceBlockNode } from "@/core/stage/stageObject/entity/ReferenceBlockNode";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
-import { LatexNode } from "@/core/stage/stageObject/entity/LatexNode";
-import { activeTabAtom, isWindowMaxsizedAtom, tabsAtom, store } from "@/state";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { activeTabAtom, isWindowMaxsizedAtom, store, tabsAtom } from "@/state";
 import { LogicalSize } from "@tauri-apps/api/dpi";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { Image as TauriImage } from "@tauri-apps/api/image";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { writeImage, writeText } from "@tauri-apps/plugin-clipboard-manager";
 // import ColorWindow from "@/sub/ColorWindow";
 import FindWindow from "@/sub/FindWindow";
 // import KeyboardRecentFilesWindow from "@/sub/KeyboardRecentFilesWindow";
+import ColorPaletteWindow from "@/sub/ColorPaletteWindow";
 import ColorWindow from "@/sub/ColorWindow";
 import RecentFilesWindow from "@/sub/RecentFilesWindow";
 import SettingsWindow from "@/sub/SettingsWindow";
 import TagWindow from "@/sub/TagWindow";
 import { Direction } from "@/types/directions";
 import { openBrowserOrFile } from "@/utils/externalOpen";
+import { exportImagesToProjectDirectory } from "@/utils/imageExport";
 import { isMac } from "@/utils/platform";
 import { Color, Vector } from "@graphif/data-structures";
+import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignHorizontalJustifyStart,
+  AlignHorizontalSpaceBetween,
+  AlignLeft,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  AlignVerticalJustifyStart,
+  AlignVerticalSpaceBetween,
+  Aperture,
+  ArrowDown,
+  ArrowDownUp,
+  ArrowLeft,
+  ArrowLeftRight,
+  ArrowRight,
+  ArrowRightFromLine,
+  ArrowUp,
+  ArrowUpToLine,
+  Box,
+  Brush,
+  Camera,
+  ChevronFirst,
+  ChevronLast,
+  ChevronsDown,
+  ChevronsRightLeft,
+  ChevronsUp,
+  CircleCheck,
+  CircleSlash,
+  Clipboard,
+  Code,
+  Copy,
+  CornerUpRight,
+  Dot,
+  Equal,
+  Expand,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  FilePlus,
+  FileUp,
+  FlaskConical,
+  Focus,
+  Folder,
+  FolderPlus,
+  Ghost,
+  GitBranch,
+  GitCompare,
+  GraduationCap,
+  Grip,
+  History,
+  Images,
+  Layers,
+  LayoutDashboard,
+  LayoutPanelTop,
+  Link,
+  Lock,
+  LucideProps,
+  Maximize,
+  Maximize2,
+  Merge,
+  Minimize,
+  Minimize2,
+  Moon,
+  MousePointer,
+  MoveHorizontal,
+  MoveUpRight,
+  Network,
+  Package,
+  Palette,
+  PenTool,
+  Plus,
+  Redo,
+  RefreshCcw,
+  RefreshCcwDot,
+  RefreshCw,
+  Repeat,
+  Save,
+  Scissors,
+  Search,
+  Settings as SettingsIcon,
+  Shrink,
+  Slash,
+  Sparkle,
+  Spline,
+  Split,
+  SquareDashedBottomCode,
+  SquareDot,
+  SquareRoundCorner,
+  SquareSquare,
+  Sun,
+  Tag,
+  Trash2,
+  TreePine,
+  Type,
+  Undo,
+  Wand2,
+  X,
+  Zap,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
+import { ForwardRefExoticComponent, RefAttributes } from "react";
 import { toast } from "sonner";
 import { RecentFileManager } from "../../dataFileService/RecentFileManager";
 import { ColorSmartTools } from "../../dataManageService/colorSmartTools";
 import { ConnectNodeSmartTools } from "../../dataManageService/connectNodeSmartTools";
 import { TextNodeSmartTools } from "../../dataManageService/textNodeSmartTools";
 import { createFileAtCurrentProjectDir, onNewDraft, onOpenFile, openCurrentProjectFolder } from "../../GlobalMenu";
+import { LatexNode } from "@/core/stage/stageObject/entity/LatexNode";
+
+export type KeyBindWhen = (project?: Project) => boolean | Promise<boolean>;
 
 interface KeyBindItem {
   id: string;
   defaultKey: string;
   onPress: (project?: Project) => void;
   onRelease?: (project?: Project) => void;
+  when: KeyBindWhen;
   // 全局快捷键
   isGlobal?: boolean;
   // 是否是持续型快捷键
   isContinuous?: boolean;
   // 默认是否启用
   defaultEnabled?: boolean;
+  icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>;
 }
+
+const whenAlways: KeyBindWhen = () => true;
+const whenHasProject: KeyBindWhen = (project) => !!project;
+const whenKeyboardOnlyOpen: KeyBindWhen = (project) => !!project && project.keyboardOnlyEngine.isOpenning();
+const whenHasSelectedStageObjectsOrSelectionRectangle: KeyBindWhen = (project) =>
+  !!project &&
+  (project.stageManager.getSelectedStageObjects().length > 0 || project.rectangleSelect.getRectangle() !== null);
+const whenHasSelectedEntities: KeyBindWhen = (project) =>
+  !!project && project.stageManager.getSelectedEntities().length > 0;
+const whenHasMultipleSelectedEntities: KeyBindWhen = (project) =>
+  !!project && project.stageManager.getSelectedEntities().length >= 2;
+const whenHasSelectedConnectableEntities: KeyBindWhen = (project) =>
+  !!project && project.stageManager.getSelectedEntities().some((entity) => entity instanceof ConnectableEntity);
+const whenHasMultipleSelectedConnectableEntities: KeyBindWhen = (project) =>
+  !!project &&
+  project.stageManager.getSelectedEntities().filter((entity) => entity instanceof ConnectableEntity).length > 1;
+const whenHasSelectedTextNodes: KeyBindWhen = (project) =>
+  !!project && project.stageManager.getSelectedEntities().some((entity) => entity instanceof TextNode);
+const whenHasSelectedReferenceBlockNodes: KeyBindWhen = (project) =>
+  !!project && project.stageManager.getSelectedEntities().some((entity) => entity instanceof ReferenceBlockNode);
+const whenHasSelectedSections: KeyBindWhen = (project) =>
+  !!project && project.stageManager.getSelectedEntities().some((entity) => entity instanceof Section);
+const whenHasSelectedImageNodes: KeyBindWhen = (project) =>
+  !!project && project.stageManager.getSelectedEntities().some((entity) => entity instanceof ImageNode);
+const whenHasSelectedLineEdges: KeyBindWhen = (project) =>
+  !!project && project.stageManager.getLineEdges().some((edge) => edge.isSelected);
+const whenHasSelectedMTUEdges: KeyBindWhen = (project) =>
+  !!project &&
+  project.stageManager
+    .getSelectedAssociations()
+    .some((association) => association instanceof MultiTargetUndirectedEdge);
+const whenHasSelectedColorableStageObjects: KeyBindWhen = (project) =>
+  !!project && project.stageManager.getSelectedStageObjects().some((object) => "color" in object);
+const whenKeyboardOnlyOpenWithSelectedStageObjects: KeyBindWhen = (project) =>
+  !!project && project.keyboardOnlyEngine.isOpenning() && project.stageManager.getSelectedStageObjects().length > 0;
+const whenKeyboardOnlyOpenWithSelectedEntities: KeyBindWhen = (project) =>
+  !!project && project.keyboardOnlyEngine.isOpenning() && project.stageManager.getSelectedEntities().length > 0;
+const whenKeyboardOnlyOpenWithSelectedConnectableEntities: KeyBindWhen = (project) =>
+  !!project &&
+  project.keyboardOnlyEngine.isOpenning() &&
+  project.stageManager.getSelectedEntities().some((entity) => entity instanceof ConnectableEntity);
+const whenKeyboardOnlyOpenWithSelectedTextNodes: KeyBindWhen = (project) =>
+  !!project &&
+  project.keyboardOnlyEngine.isOpenning() &&
+  project.stageManager.getSelectedEntities().some((entity) => entity instanceof TextNode);
+const whenKeyboardOnlyOpenWithSelectedSections: KeyBindWhen = (project) =>
+  !!project &&
+  project.keyboardOnlyEngine.isOpenning() &&
+  project.stageManager.getSelectedEntities().some((entity) => entity instanceof Section);
 
 export const allKeyBinds: KeyBindItem[] = [
   {
     id: "test",
     defaultKey: "C-A-S-t",
+    icon: FlaskConical,
+    when: whenAlways,
     onPress: () =>
       Dialog.buttons("测试快捷键", "您按下了自定义的测试快捷键，这一功能是测试开发所用，可在设置中更改触发方式", [
         { id: "close", label: "关闭" },
@@ -62,6 +226,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "closeAllSubWindows",
     defaultKey: "Escape",
+    icon: X,
+    when: whenAlways,
     onPress: () => {
       if (!SubWindow.hasOpenWindows()) return;
       SubWindow.closeAll();
@@ -70,6 +236,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "toggleFullscreen",
     defaultKey: "C-F11",
+    icon: Maximize,
+    when: whenAlways,
     onPress: async () => {
       const window = getCurrentWindow();
       // 如果当前已经是最大化的状态，设置为非最大化
@@ -84,6 +252,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "setWindowToMiniSize",
     defaultKey: "A-S-m",
+    icon: Minimize,
+    when: whenAlways,
     onPress: async () => {
       const window = getCurrentWindow();
       // 如果当前是最大化状态，先取消最大化
@@ -106,6 +276,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "undo",
     defaultKey: "C-z",
+    icon: Undo,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.historyManager.undo();
@@ -114,6 +286,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "redo",
     defaultKey: "C-y",
+    icon: Redo,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.historyManager.redo();
@@ -122,6 +296,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "reload",
     defaultKey: "C-f5",
+    icon: RefreshCw,
+    when: whenAlways,
     onPress: async () => {
       if (
         await Dialog.confirm(
@@ -141,6 +317,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "checkoutClassroomMode",
     defaultKey: "F5",
+    icon: GraduationCap,
+    when: whenAlways,
     onPress: async () => {
       if (Settings.isClassroomMode) {
         toast.info("已经退出专注模式，点击一下更新状态");
@@ -157,6 +335,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "resetView",
     defaultKey: "F",
+    icon: Focus,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.camera.saveCameraState();
@@ -166,6 +346,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "restoreCameraState",
     defaultKey: "S-F",
+    icon: Camera,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.camera.restoreCameraState();
@@ -174,11 +356,15 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "resetCameraScale",
     defaultKey: "C-A-r",
+    icon: Aperture,
+    when: whenHasProject,
     onPress: (project) => project!.camera.resetScale(),
   },
   {
     id: "CameraScaleZoomIn",
     defaultKey: "[",
+    icon: ZoomIn,
+    when: whenHasProject,
     isContinuous: true,
     onPress: (project) => {
       project!.camera.isStartZoomIn = true;
@@ -192,6 +378,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "CameraScaleZoomOut",
     defaultKey: "]",
+    icon: ZoomOut,
+    when: whenHasProject,
     isContinuous: true,
     onPress: (project) => {
       project!.camera.isStartZoomOut = true;
@@ -205,6 +393,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "CameraMoveUp",
     defaultKey: "w",
+    icon: ArrowUp,
+    when: whenHasProject,
     isContinuous: true,
     onPress: (project) => {
       project!.camera.accelerateCommander = project!.camera.accelerateCommander
@@ -222,6 +412,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "CameraMoveDown",
     defaultKey: "s",
+    icon: ArrowDown,
+    when: whenHasProject,
     isContinuous: true,
     onPress: (project) => {
       project!.camera.accelerateCommander = project!.camera.accelerateCommander
@@ -239,6 +431,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "CameraMoveLeft",
     defaultKey: "a",
+    icon: ArrowLeft,
+    when: whenHasProject,
     isContinuous: true,
     onPress: (project) => {
       project!.camera.accelerateCommander = project!.camera.accelerateCommander
@@ -256,6 +450,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "CameraMoveRight",
     defaultKey: "d",
+    icon: ArrowRight,
+    when: whenHasProject,
     isContinuous: true,
     onPress: (project) => {
       project!.camera.accelerateCommander = project!.camera.accelerateCommander
@@ -275,6 +471,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "CameraPageMoveUp",
     defaultKey: isMac ? "S-i" : "pageup",
+    icon: ChevronsUp,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.camera.pageMove(Direction.Up);
@@ -283,6 +481,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "CameraPageMoveDown",
     defaultKey: isMac ? "S-k" : "pagedown",
+    icon: ChevronsDown,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.camera.pageMove(Direction.Down);
@@ -291,6 +491,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "CameraPageMoveLeft",
     defaultKey: isMac ? "S-j" : "home",
+    icon: ChevronFirst,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.camera.pageMove(Direction.Left);
@@ -299,6 +501,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "CameraPageMoveRight",
     defaultKey: isMac ? "S-l" : "end",
+    icon: ChevronLast,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.camera.pageMove(Direction.Right);
@@ -309,11 +513,15 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "folderSection",
     defaultKey: "C-t",
+    icon: Folder,
+    when: whenHasSelectedSections,
     onPress: (project) => project!.stageManager.sectionSwitchCollapse(),
   },
   {
     id: "packEntityToSection",
     defaultKey: "C-g",
+    icon: Package,
+    when: whenHasSelectedStageObjectsOrSelectionRectangle,
     onPress: (project) => {
       // 检查是否有框选框并且舞台上没有选中任何物体
       const rectangleSelect = project!.rectangleSelect;
@@ -332,6 +540,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "toggleSectionLock",
     defaultKey: "C-l",
+    icon: Lock,
+    when: whenKeyboardOnlyOpenWithSelectedSections,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       const selectedSections = project!.stageManager.getSelectedEntities().filter((it) => it instanceof Section);
@@ -349,11 +559,15 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "reverseEdges",
     defaultKey: "C-t",
+    icon: Repeat,
+    when: whenHasSelectedLineEdges,
     onPress: (project) => project!.stageManager.reverseSelectedEdges(),
   },
   {
     id: "reverseSelectedNodeEdge",
     defaultKey: "C-t",
+    icon: GitCompare,
+    when: whenHasSelectedConnectableEntities,
     onPress: (project) => project!.stageManager.reverseSelectedNodeEdge(),
   },
 
@@ -361,6 +575,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "createUndirectedEdgeFromEntities",
     defaultKey: "S-g",
+    icon: GitBranch,
+    when: whenHasMultipleSelectedConnectableEntities,
     onPress: (project) => {
       const selectedNodes = project!.stageManager
         .getSelectedEntities()
@@ -373,11 +589,31 @@ export const allKeyBinds: KeyBindItem[] = [
       project!.stageManager.add(multiTargetUndirectedEdge);
     },
   },
+  {
+    id: "createMTUEdgeConvex",
+    defaultKey: "m t u c",
+    icon: SquareRoundCorner,
+    when: whenHasMultipleSelectedConnectableEntities,
+    onPress: (project) => {
+      const selectedNodes = project!.stageManager
+        .getSelectedEntities()
+        .filter((node) => node instanceof ConnectableEntity);
+      if (selectedNodes.length <= 1) {
+        toast.error("至少选择两个可连接节点");
+        return;
+      }
+      const multiTargetUndirectedEdge = MultiTargetUndirectedEdge.createFromSomeEntity(project!, selectedNodes);
+      multiTargetUndirectedEdge.renderType = "convex";
+      project!.stageManager.add(multiTargetUndirectedEdge);
+    },
+  },
 
   /*------- 删除 -------*/
   {
     id: "deleteSelectedStageObjects",
     defaultKey: isMac ? "backspace" : "delete",
+    icon: Trash2,
+    when: whenKeyboardOnlyOpenWithSelectedStageObjects,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.stageManager.deleteSelectedStageObjects();
@@ -388,6 +624,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "createTextNodeFromCameraLocation",
     defaultKey: "insert",
+    icon: Plus,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.camera.clearMoveCommander();
@@ -398,6 +636,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "createTextNodeFromMouseLocation",
     defaultKey: "S-insert",
+    icon: Plus,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.camera.clearMoveCommander();
@@ -410,8 +650,20 @@ export const allKeyBinds: KeyBindItem[] = [
     },
   },
   {
+    id: "createConnectPointFromMouseLocation",
+    defaultKey: "S-.",
+    icon: Dot,
+    when: whenKeyboardOnlyOpen,
+    onPress: (project) => {
+      if (!project!.keyboardOnlyEngine.isOpenning()) return;
+      project!.controllerUtils.createConnectPoint(project!.renderer.transformView2World(MouseLocation.vector()));
+    },
+  },
+  {
     id: "createTextNodeFromSelectedTop",
     defaultKey: "A-arrowup",
+    icon: ArrowUp,
+    when: whenKeyboardOnlyOpenWithSelectedConnectableEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.controllerUtils.addTextNodeFromCurrentSelectedNode(Direction.Up, true);
@@ -420,6 +672,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "createTextNodeFromSelectedRight",
     defaultKey: "A-arrowright",
+    icon: ArrowRight,
+    when: whenKeyboardOnlyOpenWithSelectedConnectableEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.controllerUtils.addTextNodeFromCurrentSelectedNode(Direction.Right, true);
@@ -428,6 +682,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "createTextNodeFromSelectedLeft",
     defaultKey: "A-arrowleft",
+    icon: ArrowLeft,
+    when: whenKeyboardOnlyOpenWithSelectedConnectableEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.controllerUtils.addTextNodeFromCurrentSelectedNode(Direction.Left, true);
@@ -436,6 +692,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "createTextNodeFromSelectedDown",
     defaultKey: "A-arrowdown",
+    icon: ArrowDown,
+    when: whenKeyboardOnlyOpenWithSelectedConnectableEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.controllerUtils.addTextNodeFromCurrentSelectedNode(Direction.Down, true);
@@ -446,6 +704,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "selectUp",
     defaultKey: "arrowup",
+    icon: ArrowUp,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.selectChangeEngine.selectUp();
@@ -454,6 +714,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "selectDown",
     defaultKey: "arrowdown",
+    icon: ArrowDown,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.selectChangeEngine.selectDown();
@@ -462,11 +724,15 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "selectLeft",
     defaultKey: "arrowleft",
+    icon: ArrowLeft,
+    when: whenHasProject,
     onPress: (project) => project!.selectChangeEngine.selectLeft(),
   },
   {
     id: "selectRight",
     defaultKey: "arrowright",
+    icon: ArrowRight,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.selectChangeEngine.selectRight();
@@ -475,6 +741,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "selectAdditionalUp",
     defaultKey: "S-arrowup",
+    icon: ChevronsUp,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.selectChangeEngine.selectUp(true);
@@ -483,6 +751,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "selectAdditionalDown",
     defaultKey: "S-arrowdown",
+    icon: ChevronsDown,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.selectChangeEngine.selectDown(true);
@@ -491,6 +761,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "selectAdditionalLeft",
     defaultKey: "S-arrowleft",
+    icon: ChevronFirst,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.selectChangeEngine.selectLeft(true);
@@ -499,6 +771,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "selectAdditionalRight",
     defaultKey: "S-arrowright",
+    icon: ChevronLast,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.selectChangeEngine.selectRight(true);
@@ -509,6 +783,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "moveUpSelectedEntities",
     defaultKey: "C-arrowup",
+    icon: ArrowUp,
+    when: whenKeyboardOnlyOpenWithSelectedEntities,
     isContinuous: true,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
@@ -521,6 +797,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "moveDownSelectedEntities",
     defaultKey: "C-arrowdown",
+    icon: ArrowDown,
+    when: whenKeyboardOnlyOpenWithSelectedEntities,
     isContinuous: true,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
@@ -533,6 +811,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "moveLeftSelectedEntities",
     defaultKey: "C-arrowleft",
+    icon: ArrowLeft,
+    when: whenKeyboardOnlyOpenWithSelectedEntities,
     isContinuous: true,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
@@ -545,6 +825,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "moveRightSelectedEntities",
     defaultKey: "C-arrowright",
+    icon: ArrowRight,
+    when: whenKeyboardOnlyOpenWithSelectedEntities,
     isContinuous: true,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
@@ -559,6 +841,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "jumpMoveUpSelectedEntities",
     defaultKey: "C-A-arrowup",
+    icon: ChevronsUp,
+    when: whenKeyboardOnlyOpenWithSelectedEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.entityMoveManager.jumpMoveSelectedConnectableEntities(new Vector(0, -100));
@@ -567,6 +851,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "jumpMoveDownSelectedEntities",
     defaultKey: "C-A-arrowdown",
+    icon: ChevronsDown,
+    when: whenKeyboardOnlyOpenWithSelectedEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.entityMoveManager.jumpMoveSelectedConnectableEntities(new Vector(0, 100));
@@ -575,6 +861,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "jumpMoveLeftSelectedEntities",
     defaultKey: "C-A-arrowleft",
+    icon: ChevronFirst,
+    when: whenKeyboardOnlyOpenWithSelectedEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.entityMoveManager.jumpMoveSelectedConnectableEntities(new Vector(-100, 0));
@@ -583,6 +871,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "jumpMoveRightSelectedEntities",
     defaultKey: "C-A-arrowright",
+    icon: ChevronLast,
+    when: whenKeyboardOnlyOpenWithSelectedEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.entityMoveManager.jumpMoveSelectedConnectableEntities(new Vector(100, 0));
@@ -593,6 +883,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "editEntityDetails",
     defaultKey: "C-enter",
+    icon: PenTool,
+    when: whenKeyboardOnlyOpenWithSelectedEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.controllerUtils.editNodeDetailsByKeyboard();
@@ -603,11 +895,22 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "openColorPanel",
     defaultKey: "F6",
+    icon: Palette,
+    when: whenAlways,
     onPress: () => ColorWindow.open(),
+  },
+  {
+    id: "openColorPaletteWindow",
+    defaultKey: "S-F6",
+    icon: Palette,
+    when: whenAlways,
+    onPress: () => ColorPaletteWindow.open(),
   },
   {
     id: "switchDebugShow",
     defaultKey: "F3",
+    icon: Wand2,
+    when: whenAlways,
     onPress: async () => {
       Settings.showDebug = !Settings.showDebug;
     },
@@ -615,6 +918,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "selectAll",
     defaultKey: "C-a",
+    icon: MousePointer,
+    when: whenHasProject,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.stageManager.selectAll();
@@ -636,11 +941,15 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "textNodeToSection",
     defaultKey: "C-S-g",
+    icon: Box,
+    when: whenHasSelectedTextNodes,
     onPress: (project) => project!.sectionPackManager.textNodeToSection(),
   },
   {
     id: "unpackEntityFromSection",
     defaultKey: "C-S-g",
+    icon: Scissors,
+    when: whenHasSelectedSections,
     onPress: (project) => project!.sectionPackManager.unpackSelectedSections(),
   },
 
@@ -648,6 +957,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "checkoutProtectPrivacy",
     defaultKey: "C-2",
+    icon: EyeOff,
+    when: whenAlways,
     onPress: async () => {
       Settings.protectingPrivacy = !Settings.protectingPrivacy;
     },
@@ -657,11 +968,15 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "searchText",
     defaultKey: "C-f",
+    icon: Search,
+    when: whenAlways,
     onPress: () => FindWindow.open(),
   },
   {
     id: "openTextNodeByContentExternal",
     defaultKey: "C-e",
+    icon: ExternalLink,
+    when: whenKeyboardOnlyOpenWithSelectedTextNodes,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project?.controller.pressingKeySet.clear(); // 防止打开prg文件时，ctrl+E持续按下
@@ -673,21 +988,29 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "clickAppMenuSettingsButton",
     defaultKey: "S-!",
+    icon: SettingsIcon,
+    when: whenAlways,
     onPress: () => SettingsWindow.open("settings"),
   },
   {
     id: "clickAppMenuRecentFileButton",
     defaultKey: "S-#",
+    icon: History,
+    when: whenAlways,
     onPress: () => RecentFilesWindow.open(),
   },
   {
     id: "clickTagPanelButton",
     defaultKey: "S-@",
+    icon: Tag,
+    when: whenAlways,
     onPress: () => TagWindow.open(),
   },
   {
     id: "switchActiveProject",
     defaultKey: "C-tab",
+    icon: Layers,
+    when: whenHasProject,
     onPress: () => {
       //
 
@@ -705,6 +1028,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "switchActiveProjectReversed",
     defaultKey: "C-S-tab",
+    icon: Layers,
+    when: whenHasProject,
     onPress: () => {
       const tabs = store.get(tabsAtom);
       if (tabs.length <= 1) {
@@ -724,6 +1049,8 @@ export const allKeyBinds: KeyBindItem[] = [
     id: "closeCurrentProjectTab",
     defaultKey: "A-S-q",
     defaultEnabled: false,
+    icon: X,
+    when: whenHasProject,
     onPress: async () => {
       const tab = store.get(activeTabAtom);
       if (!tab) {
@@ -766,6 +1093,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "exportSelectedTreeStructureToPlainText",
     defaultKey: "S-e t p",
+    icon: Type,
+    when: whenHasSelectedTextNodes,
     onPress: () => {
       const tab = store.get(activeTabAtom);
       const activeProject = tab instanceof Project ? tab : undefined;
@@ -780,6 +1109,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "exportSelectedTreeStructureToMarkdown",
     defaultKey: "S-e t m",
+    icon: Type,
+    when: whenHasSelectedTextNodes,
     onPress: () => {
       const tab = store.get(activeTabAtom);
       const activeProject = tab instanceof Project ? tab : undefined;
@@ -794,6 +1125,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "exportSelectedNetStructureToPlainText",
     defaultKey: "S-e n p",
+    icon: Network,
+    when: whenHasSelectedEntities,
     onPress: () => {
       const tab = store.get(activeTabAtom);
       const activeProject = tab instanceof Project ? tab : undefined;
@@ -811,6 +1144,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "exportSelectedNetStructureToMermaid",
     defaultKey: "S-e n m",
+    icon: Network,
+    when: whenHasSelectedEntities,
     onPress: () => {
       const tab = store.get(activeTabAtom);
       const activeProject = tab instanceof Project ? tab : undefined;
@@ -828,6 +1163,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "saveFile",
     defaultKey: "C-s",
+    icon: Save,
+    when: whenHasProject,
     onPress: () => {
       const tab = store.get(activeTabAtom);
       const activeProject = tab instanceof Project ? tab : undefined;
@@ -844,11 +1181,15 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "newDraft",
     defaultKey: "C-n",
+    icon: FilePlus,
+    when: whenAlways,
     onPress: () => onNewDraft(),
   },
   {
     id: "newFileAtCurrentProjectDir",
     defaultKey: "C-S-n",
+    icon: FolderPlus,
+    when: whenHasProject,
     onPress: () => {
       //
       const tab = store.get(activeTabAtom);
@@ -869,11 +1210,15 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "openFile",
     defaultKey: "C-o",
+    icon: FileUp,
+    when: whenAlways,
     onPress: () => onOpenFile(),
   },
   {
     id: "openCurrentProjectFileFolder",
     defaultKey: "C-S-l",
+    icon: Folder,
+    when: whenHasProject,
     onPress: () => {
       const tab = store.get(activeTabAtom);
       const activeProject = tab instanceof Project ? tab : undefined;
@@ -889,6 +1234,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "checkoutWindowOpacityMode",
     defaultKey: "C-0",
+    icon: Eye,
+    when: whenAlways,
     onPress: async () => {
       Settings.windowBackgroundAlpha = Settings.windowBackgroundAlpha === 0 ? 1 : 0;
     },
@@ -896,6 +1243,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "windowOpacityAlphaIncrease",
     defaultKey: "C-A-S-+",
+    icon: Sun,
+    when: whenHasProject,
     onPress: async (project) => {
       const currentValue = Settings.windowBackgroundAlpha;
       if (currentValue === 1) {
@@ -909,6 +1258,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "windowOpacityAlphaDecrease",
     defaultKey: "C-A-S--",
+    icon: Moon,
+    when: whenHasProject,
     onPress: async (project) => {
       const currentValue = Settings.windowBackgroundAlpha;
       if (currentValue === 0) {
@@ -924,6 +1275,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "copy",
     defaultKey: "C-c",
+    icon: Copy,
+    when: whenKeyboardOnlyOpenWithSelectedStageObjects,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.copyEngine.copy();
@@ -932,6 +1285,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "paste",
     defaultKey: "C-v",
+    icon: Clipboard,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.copyEngine.paste();
@@ -940,6 +1295,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "pasteWithOriginLocation",
     defaultKey: "C-S-v",
+    icon: Clipboard,
+    when: whenAlways,
     onPress: () => toast("todo"),
   },
 
@@ -947,6 +1304,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "checkoutLeftMouseToSelectAndMove",
     defaultKey: "v v v",
+    icon: MousePointer,
+    when: whenKeyboardOnlyOpen,
     onPress: async (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       Settings.mouseLeftMode = "selectAndMove";
@@ -956,6 +1315,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "checkoutLeftMouseToDrawing",
     defaultKey: "b b b",
+    icon: Brush,
+    when: whenKeyboardOnlyOpen,
     onPress: async (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       Settings.mouseLeftMode = "draw";
@@ -965,6 +1326,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "checkoutLeftMouseToConnectAndCutting",
     defaultKey: "c c c",
+    icon: Link,
+    when: whenKeyboardOnlyOpen,
     onPress: async (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       Settings.mouseLeftMode = "connectAndCut";
@@ -976,6 +1339,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "selectEntityByPenStroke",
     defaultKey: "C-w",
+    icon: Brush,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       // 现在不生效了，不过也没啥用
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
@@ -985,6 +1350,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "expandSelectEntity",
     defaultKey: "C-w",
+    icon: Expand,
+    when: whenKeyboardOnlyOpenWithSelectedStageObjects,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.selectChangeEngine.expandSelect(false, false);
@@ -993,6 +1360,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "expandSelectEntityReversed",
     defaultKey: "C-S-w",
+    icon: Shrink,
+    when: whenKeyboardOnlyOpenWithSelectedStageObjects,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.selectChangeEngine.expandSelect(false, true);
@@ -1001,6 +1370,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "expandSelectEntityKeepLastSelected",
     defaultKey: "C-A-w",
+    icon: Expand,
+    when: whenKeyboardOnlyOpenWithSelectedStageObjects,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.selectChangeEngine.expandSelect(true, false);
@@ -1009,6 +1380,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "expandSelectEntityReversedKeepLastSelected",
     defaultKey: "C-A-S-w",
+    icon: Shrink,
+    when: whenKeyboardOnlyOpenWithSelectedStageObjects,
     onPress: async (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.selectChangeEngine.expandSelect(true, true);
@@ -1019,6 +1392,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "generateNodeTreeWithDeepMode",
     defaultKey: "tab",
+    icon: GitBranch,
+    when: whenKeyboardOnlyOpen,
     onPress: async (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.keyboardOnlyTreeEngine.onDeepGenerateNode();
@@ -1027,6 +1402,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "generateNodeTreeWithBroadMode",
     defaultKey: "\\",
+    icon: GitBranch,
+    when: whenKeyboardOnlyOpen,
     onPress: async (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.keyboardOnlyTreeEngine.onBroadGenerateNode();
@@ -1035,6 +1412,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "generateNodeGraph",
     defaultKey: "`",
+    icon: Network,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       if (project!.keyboardOnlyGraphEngine.isCreating()) {
@@ -1052,6 +1431,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "masterBrakeControl",
     defaultKey: "pause",
+    icon: CircleSlash,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.camera.clearMoveCommander();
@@ -1061,6 +1442,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "masterBrakeCheckout",
     defaultKey: "space",
+    icon: CircleSlash,
+    when: whenKeyboardOnlyOpen,
     onPress: async (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.camera.clearMoveCommander();
@@ -1072,6 +1455,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "treeGraphAdjust",
     defaultKey: "A-S-f",
+    icon: Network,
+    when: whenKeyboardOnlyOpenWithSelectedConnectableEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       const entities = project!.stageManager
@@ -1086,6 +1471,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "treeGraphAdjustSelectedAsRoot",
     defaultKey: "C-A-S-f",
+    icon: Network,
+    when: whenKeyboardOnlyOpenWithSelectedConnectableEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       const entities = project!.stageManager
@@ -1098,10 +1485,52 @@ export const allKeyBinds: KeyBindItem[] = [
       project?.controller.pressingKeySet.clear(); // 解决 mac 按下后容易卡键
     },
   },
+  {
+    id: "treeReverseX",
+    defaultKey: "t r x",
+    icon: ArrowLeftRight,
+    when: whenHasSelectedConnectableEntities,
+    onPress: (project) => {
+      const selectedRoot = project!.stageManager
+        .getSelectedEntities()
+        .find((entity) => entity instanceof ConnectableEntity);
+      if (!selectedRoot) return;
+      project!.autoLayoutFastTree.treeReverseX(selectedRoot);
+      project!.historyManager.recordStep();
+    },
+  },
+  {
+    id: "treeReverseY",
+    defaultKey: "t r y",
+    icon: ArrowDownUp,
+    when: whenHasSelectedConnectableEntities,
+    onPress: (project) => {
+      const selectedRoot = project!.stageManager
+        .getSelectedEntities()
+        .find((entity) => entity instanceof ConnectableEntity);
+      if (!selectedRoot) return;
+      project!.autoLayoutFastTree.treeReverseY(selectedRoot);
+      project!.historyManager.recordStep();
+    },
+  },
+  {
+    id: "textNodeTreeToSection",
+    defaultKey: "t r s",
+    icon: LayoutPanelTop,
+    when: whenHasSelectedTextNodes,
+    onPress: (project) => {
+      const textNodes = project!.stageManager.getSelectedEntities().filter((node) => node instanceof TextNode);
+      for (const textNode of textNodes) {
+        project!.sectionPackManager.textNodeTreeToSection(textNode);
+      }
+    },
+  },
   /*------- DAG调整 -------*/
   {
     id: "dagGraphAdjust",
     defaultKey: "A-S-d",
+    icon: Network,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       const entities = project!.stageManager
@@ -1120,6 +1549,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "gravityLayout",
     defaultKey: "g",
+    icon: Sun,
+    when: whenHasProject,
     onPress: (project) => {
       project?.autoLayout.setGravityLayoutStart();
     },
@@ -1130,44 +1561,44 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "setNodeTreeDirectionUp",
     defaultKey: "W W",
+    icon: ArrowUp,
+    when: whenKeyboardOnlyOpenWithSelectedConnectableEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
-      const entities = project!.stageManager
-        .getSelectedEntities()
-        .filter((entity) => entity instanceof ConnectableEntity);
+      const entities = project!.stageManager.getSelectedEntities().filter((node) => node instanceof ConnectableEntity);
       project?.keyboardOnlyTreeEngine.changePreDirection(entities, "up");
     },
   },
   {
     id: "setNodeTreeDirectionDown",
     defaultKey: "S S",
+    icon: ArrowDown,
+    when: whenKeyboardOnlyOpenWithSelectedConnectableEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
-      const entities = project!.stageManager
-        .getSelectedEntities()
-        .filter((entity) => entity instanceof ConnectableEntity);
+      const entities = project!.stageManager.getSelectedEntities().filter((node) => node instanceof ConnectableEntity);
       project?.keyboardOnlyTreeEngine.changePreDirection(entities, "down");
     },
   },
   {
     id: "setNodeTreeDirectionLeft",
     defaultKey: "A A",
+    icon: ArrowLeft,
+    when: whenKeyboardOnlyOpenWithSelectedConnectableEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
-      const entities = project!.stageManager
-        .getSelectedEntities()
-        .filter((entity) => entity instanceof ConnectableEntity);
+      const entities = project!.stageManager.getSelectedEntities().filter((node) => node instanceof ConnectableEntity);
       project?.keyboardOnlyTreeEngine.changePreDirection(entities, "left");
     },
   },
   {
     id: "setNodeTreeDirectionRight",
     defaultKey: "D D",
+    icon: ArrowRight,
+    when: whenKeyboardOnlyOpenWithSelectedConnectableEntities,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
-      const entities = project!.stageManager
-        .getSelectedEntities()
-        .filter((entity) => entity instanceof ConnectableEntity);
+      const entities = project!.stageManager.getSelectedEntities().filter((node) => node instanceof ConnectableEntity);
       project?.keyboardOnlyTreeEngine.changePreDirection(entities, "right");
     },
   },
@@ -1177,11 +1608,15 @@ export const allKeyBinds: KeyBindItem[] = [
     // TODO 不触发了
     id: "screenFlashEffect",
     defaultKey: "arrowup arrowup arrowdown arrowdown arrowleft arrowright arrowleft arrowright b a",
+    icon: Zap,
+    when: whenHasProject,
     onPress: (project) => project!.effects.addEffect(ViewFlashEffect.SaveFile(project!)),
   },
   {
     id: "alignNodesToInteger",
     defaultKey: "i n t j",
+    icon: AlignLeft,
+    when: whenHasProject,
     onPress: (project) => {
       const entities = project!.stageManager.getConnectableEntity();
       for (const entity of entities) {
@@ -1194,16 +1629,22 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "toggleCheckmarkOnTextNodes",
     defaultKey: "o k k",
+    icon: CircleCheck,
+    when: whenHasSelectedTextNodes,
     onPress: (project) => TextNodeSmartTools.okk(project!),
   },
   {
     id: "toggleCheckErrorOnTextNodes",
     defaultKey: "e r r",
+    icon: CircleSlash,
+    when: whenHasSelectedTextNodes,
     onPress: (project) => TextNodeSmartTools.err(project!),
   },
   {
     id: "reverseImageColors",
     defaultKey: "r r r",
+    icon: Zap,
+    when: whenHasSelectedImageNodes,
     onPress: (project) => {
       const selectedImageNodes: ImageNode[] = project!.stageManager
         .getSelectedEntities()
@@ -1217,11 +1658,168 @@ export const allKeyBinds: KeyBindItem[] = [
       project?.historyManager.recordStep();
     },
   },
+  {
+    id: "copySelectedImageToClipboard",
+    defaultKey: "i c",
+    icon: Clipboard,
+    when: whenHasSelectedImageNodes,
+    onPress: async (project) => {
+      const selectedImageNodes = project!.stageManager
+        .getSelectedEntities()
+        .filter((entity) => entity instanceof ImageNode) as ImageNode[];
+      if (selectedImageNodes.length === 0) {
+        toast.error("请选中图片节点");
+        return;
+      }
+
+      const imageNode = selectedImageNodes[0];
+      const blob = project!.attachments.get(imageNode.attachmentId);
+      if (!blob) {
+        toast.error("无法获取图片数据");
+        return;
+      }
+
+      try {
+        const arrayBuffer = await blob.arrayBuffer();
+        const tauriImage = await TauriImage.fromBytes(new Uint8Array(arrayBuffer));
+        await writeImage(tauriImage);
+        if (selectedImageNodes.length === 1) {
+          toast.success("已将选中的图片复制到系统剪贴板");
+        } else {
+          toast.success(`已将第1张图片复制到系统剪贴板（共${selectedImageNodes.length}张）`);
+        }
+      } catch (error) {
+        console.error("复制图片到剪贴板失败:", error);
+        toast.error("复制图片到剪贴板失败");
+      }
+    },
+  },
+  {
+    id: "swapSelectedImageRedBlueChannels",
+    defaultKey: "i r b",
+    icon: ArrowLeftRight,
+    when: whenHasSelectedImageNodes,
+    onPress: (project) => {
+      const selectedImageNodes = project!.stageManager
+        .getSelectedEntities()
+        .filter((entity) => entity instanceof ImageNode) as ImageNode[];
+      if (selectedImageNodes.length === 0) {
+        toast.error("请选中图片节点");
+        return;
+      }
+      for (const imageNode of selectedImageNodes) {
+        imageNode.swapRedBlueChannels();
+      }
+      project!.historyManager.recordStep();
+      toast.success(
+        selectedImageNodes.length === 1
+          ? "已对调图片的红蓝通道"
+          : `已对调 ${selectedImageNodes.length} 张图片的红蓝通道`,
+      );
+    },
+  },
+  {
+    id: "setSelectedImageAsBackground",
+    defaultKey: "i b",
+    icon: Images,
+    when: whenHasSelectedImageNodes,
+    onPress: (project) => {
+      const selectedImageNodes = project!.stageManager
+        .getSelectedEntities()
+        .filter((entity) => entity instanceof ImageNode) as ImageNode[];
+      if (selectedImageNodes.length === 0) {
+        toast.error("请选中图片节点");
+        return;
+      }
+      for (const imageNode of selectedImageNodes) {
+        imageNode.isBackground = true;
+      }
+      project!.historyManager.recordStep();
+      toast.success(
+        selectedImageNodes.length === 1
+          ? "已将图片转化为背景图片"
+          : `已将 ${selectedImageNodes.length} 张图片转化为背景图片`,
+      );
+    },
+  },
+  {
+    id: "unsetSelectedImageAsBackground",
+    defaultKey: "i S-b",
+    icon: SquareSquare,
+    when: whenHasSelectedImageNodes,
+    onPress: (project) => {
+      const selectedImageNodes = project!.stageManager
+        .getSelectedEntities()
+        .filter((entity) => entity instanceof ImageNode) as ImageNode[];
+      if (selectedImageNodes.length === 0) {
+        toast.error("请选中图片节点");
+        return;
+      }
+      for (const imageNode of selectedImageNodes) {
+        imageNode.isBackground = false;
+      }
+      project!.historyManager.recordStep();
+      toast.success(
+        selectedImageNodes.length === 1 ? "已取消图片的背景化" : `已取消 ${selectedImageNodes.length} 张图片的背景化`,
+      );
+    },
+  },
+  {
+    id: "saveSelectedImagesToProjectDirectory",
+    defaultKey: "i s",
+    icon: Save,
+    when: whenHasSelectedImageNodes,
+    onPress: async (project) => {
+      if (project!.isDraft) {
+        toast.error("请先保存项目后再导出图片");
+        return;
+      }
+
+      const selectedImageNodes = project!.stageManager
+        .getSelectedEntities()
+        .filter((entity) => entity instanceof ImageNode) as ImageNode[];
+      if (selectedImageNodes.length === 0) {
+        toast.error("请选中图片节点");
+        return;
+      }
+
+      const isBatch = selectedImageNodes.length > 1;
+      const promptMessage = isBatch
+        ? `请输入文件名（不含扩展名，将为 ${selectedImageNodes.length} 张图片添加数字后缀）`
+        : "请输入文件名（不含扩展名，将自动添加扩展名）";
+      const fileName = await Dialog.input("另存图片", promptMessage, {
+        placeholder: "image",
+      });
+      if (!fileName) return;
+
+      const invalidChars = /[/\\:*?"<>|]/;
+      if (invalidChars.test(fileName)) {
+        toast.error('文件名包含非法字符：/ \\ : * ? " < > |');
+        return;
+      }
+
+      const { successCount, failedCount } = await exportImagesToProjectDirectory(
+        selectedImageNodes,
+        project!.uri.fsPath,
+        project!.attachments,
+        fileName,
+      );
+      if (successCount > 0 && failedCount === 0) {
+        toast.success(`成功保存 ${successCount} 张图片`);
+      } else if (successCount > 0 && failedCount > 0) {
+        toast.warning(`成功保存 ${successCount} 张图片，${failedCount} 张失败`);
+      } else {
+        toast.error("保存失败，请检查文件名或文件权限");
+      }
+    },
+  },
 
   /*------- 主题切换 -------*/
   {
     id: "switchToDarkTheme",
     defaultKey: "b l a c k k",
+    icon: Moon,
+    when: whenAlways,
     onPress: () => {
       toast.info("切换到暗黑主题");
       Settings.theme = "dark";
@@ -1231,6 +1829,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "switchToLightTheme",
     defaultKey: "w h i t e e",
+    icon: Sun,
+    when: whenAlways,
     onPress: () => {
       toast.info("切换到明亮主题");
       Settings.theme = "light";
@@ -1240,6 +1840,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "switchToParkTheme",
     defaultKey: "p a r k k",
+    icon: TreePine,
+    when: whenAlways,
     onPress: () => {
       toast.info("切换到公园主题");
       Settings.theme = "park";
@@ -1249,6 +1851,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "switchToMacaronTheme",
     defaultKey: "m k l m k l",
+    icon: Palette,
+    when: whenAlways,
     onPress: () => {
       toast.info("切换到马卡龙主题");
       Settings.theme = "macaron";
@@ -1258,6 +1862,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "switchToMorandiTheme",
     defaultKey: "m l d m l d",
+    icon: Palette,
+    when: whenAlways,
     onPress: () => {
       toast.info("切换到莫兰迪主题");
       Settings.theme = "morandi";
@@ -1269,18 +1875,33 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "increasePenAlpha",
     defaultKey: "p s a + +",
+    icon: Sun,
+    when: whenHasProject,
     onPress: async (project) => project!.controller.penStrokeDrawing.changeCurrentStrokeColorAlpha(0.1),
   },
   {
     id: "decreasePenAlpha",
     defaultKey: "p s a - -",
+    icon: Moon,
+    when: whenHasProject,
     onPress: async (project) => project!.controller.penStrokeDrawing.changeCurrentStrokeColorAlpha(-0.1),
+  },
+  {
+    id: "resetPenStrokeColor",
+    defaultKey: "p s c 0",
+    icon: Slash,
+    when: whenAlways,
+    onPress: () => {
+      Settings.autoFillPenStrokeColor = Color.Transparent.toArray();
+    },
   },
 
   /*------- 对齐 -------*/
   {
     id: "alignTop",
     defaultKey: "8 8",
+    icon: AlignStartHorizontal,
+    when: whenHasMultipleSelectedEntities,
     onPress: (project) => {
       project!.layoutManager.alignTop();
       project!.stageManager.changeSelectedEdgeConnectLocation(Direction.Up, true);
@@ -1290,6 +1911,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "alignBottom",
     defaultKey: "2 2",
+    icon: AlignEndHorizontal,
+    when: whenHasMultipleSelectedEntities,
     onPress: (project) => {
       project!.layoutManager.alignBottom();
       project!.stageManager.changeSelectedEdgeConnectLocation(Direction.Down, true);
@@ -1299,6 +1922,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "alignLeft",
     defaultKey: "4 4",
+    icon: AlignStartVertical,
+    when: whenHasMultipleSelectedEntities,
     onPress: (project) => {
       project!.layoutManager.alignLeft();
       project!.stageManager.changeSelectedEdgeConnectLocation(Direction.Left, true);
@@ -1308,6 +1933,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "alignRight",
     defaultKey: "6 6",
+    icon: AlignEndVertical,
+    when: whenHasMultipleSelectedEntities,
     onPress: (project) => {
       project!.layoutManager.alignRight();
       project!.stageManager.changeSelectedEdgeConnectLocation(Direction.Right, true);
@@ -1317,53 +1944,94 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "alignHorizontalSpaceBetween",
     defaultKey: "4 6 4 6",
+    icon: AlignHorizontalSpaceBetween,
+    when: whenHasMultipleSelectedEntities,
     onPress: (project) => project!.layoutManager.alignHorizontalSpaceBetween(),
   },
   {
     id: "alignVerticalSpaceBetween",
     defaultKey: "8 2 8 2",
+    icon: AlignVerticalSpaceBetween,
+    when: whenHasMultipleSelectedEntities,
     onPress: (project) => project!.layoutManager.alignVerticalSpaceBetween(),
   },
   {
     id: "alignCenterHorizontal",
     defaultKey: "5 4 6",
+    icon: AlignCenterHorizontal,
+    when: whenHasMultipleSelectedEntities,
     onPress: (project) => project!.layoutManager.alignCenterHorizontal(),
   },
   {
     id: "alignCenterVertical",
     defaultKey: "5 8 2",
+    icon: AlignCenterVertical,
+    when: whenHasMultipleSelectedEntities,
     onPress: (project) => project!.layoutManager.alignCenterVertical(),
   },
   {
     id: "alignLeftToRightNoSpace",
     defaultKey: "4 5 6",
+    icon: AlignHorizontalJustifyStart,
+    when: whenHasMultipleSelectedEntities,
     onPress: (project) => project!.layoutManager.alignLeftToRightNoSpace(),
   },
   {
     id: "alignTopToBottomNoSpace",
     defaultKey: "8 5 2",
+    icon: AlignVerticalJustifyStart,
+    when: whenHasMultipleSelectedEntities,
     onPress: (project) => project!.layoutManager.alignTopToBottomNoSpace(),
   },
   {
     id: "adjustSelectedTextNodeWidthMin",
     defaultKey: "1 3 2",
+    icon: ChevronsRightLeft,
+    when: whenHasSelectedTextNodes,
     onPress: (project) => project!.layoutManager.adjustSelectedTextNodeWidth("minWidth"),
   },
   {
     id: "adjustSelectedTextNodeWidthAverage",
     defaultKey: "4 6 5",
+    icon: MoveHorizontal,
+    when: whenHasSelectedTextNodes,
     onPress: (project) => project!.layoutManager.adjustSelectedTextNodeWidth("average"),
   },
   {
     id: "adjustSelectedTextNodeWidthMax",
     defaultKey: "7 9 8",
+    icon: Code,
+    when: whenHasSelectedTextNodes,
     onPress: (project) => project!.layoutManager.adjustSelectedTextNodeWidth("maxWidth"),
+  },
+  {
+    id: "layoutToSquare",
+    defaultKey: "5 5",
+    icon: Grip,
+    when: whenHasMultipleSelectedEntities,
+    onPress: (project) => project!.layoutManager.layoutToSquare(project!.stageManager.getSelectedEntities()),
+  },
+  {
+    id: "layoutToTightSquare",
+    defaultKey: "5 5 5",
+    icon: LayoutDashboard,
+    when: whenHasMultipleSelectedEntities,
+    onPress: (project) => project!.layoutManager.layoutToTightSquare(project!.stageManager.getSelectedEntities()),
+  },
+  {
+    id: "layoutToTightSquareDeep",
+    defaultKey: "5 5 5 5",
+    icon: SquareSquare,
+    when: whenHasMultipleSelectedEntities,
+    onPress: (project) => project!.layoutManager.layoutBySelected(project!.layoutManager.layoutToTightSquare, true),
   },
 
   /*------- 连接 -------*/
   {
     id: "createConnectPointWhenDragConnecting",
     defaultKey: "1",
+    icon: Plus,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       project!.controller.nodeConnection.createConnectPointWhenConnect();
@@ -1372,16 +2040,22 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "connectAllSelectedEntities",
     defaultKey: "- - a l l",
+    icon: Link,
+    when: whenHasMultipleSelectedConnectableEntities,
     onPress: (project) => ConnectNodeSmartTools.connectAll(project!),
   },
   {
     id: "connectLeftToRight",
     defaultKey: "- - r i g h t",
+    icon: Link,
+    when: whenHasMultipleSelectedConnectableEntities,
     onPress: (project) => ConnectNodeSmartTools.connectRight(project!),
   },
   {
     id: "connectTopToBottom",
     defaultKey: "- - d o w n",
+    icon: Link,
+    when: whenHasMultipleSelectedConnectableEntities,
     onPress: (project) => ConnectNodeSmartTools.connectDown(project!),
   },
 
@@ -1389,6 +2063,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "selectAllEdges",
     defaultKey: "+ e d g e",
+    icon: MousePointer,
+    when: whenHasProject,
     onPress: (project) => {
       const selectedEdges = project!.stageManager.getAssociations();
       const viewRect = project!.renderer.getCoverWorldRectangle();
@@ -1402,6 +2078,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "setSelectedEdgesToDashed",
     defaultKey: "S-t e d",
+    icon: CircleSlash,
+    when: whenHasSelectedLineEdges,
     onPress: (project) => {
       const selectedEdges = project!.stageManager.getLineEdges().filter((edge) => edge.isSelected);
       if (selectedEdges.length === 0) {
@@ -1417,6 +2095,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "setSelectedEdgesToSolid",
     defaultKey: "S-t e s",
+    icon: Link,
+    when: whenHasSelectedLineEdges,
     onPress: (project) => {
       const selectedEdges = project!.stageManager.getLineEdges().filter((edge) => edge.isSelected);
       if (selectedEdges.length === 0) {
@@ -1428,11 +2108,195 @@ export const allKeyBinds: KeyBindItem[] = [
       project!.historyManager.recordStep();
     },
   },
+  {
+    id: "setSelectedEdgesToDouble",
+    defaultKey: "S-t e b",
+    icon: Equal,
+    when: whenHasSelectedLineEdges,
+    onPress: (project) => {
+      project!.stageManager.setSelectedEdgeLineType("double");
+      project!.historyManager.recordStep();
+    },
+  },
+  {
+    id: "switchEdgeToUndirectedEdge",
+    defaultKey: "e t u",
+    icon: Spline,
+    when: whenHasSelectedLineEdges,
+    onPress: (project) => {
+      project!.stageManager.switchEdgeToUndirectedEdge();
+      project!.historyManager.recordStep();
+    },
+  },
+  {
+    id: "switchUndirectedEdgeToEdge",
+    defaultKey: "u t e",
+    icon: MoveUpRight,
+    when: whenHasSelectedMTUEdges,
+    onPress: (project) => {
+      project!.stageManager.switchUndirectedEdgeToEdge();
+      project!.historyManager.recordStep();
+    },
+  },
+  {
+    id: "setSelectedEdgeSourceConnectLocationUp",
+    defaultKey: "e s 8",
+    icon: ArrowRightFromLine,
+    when: whenHasSelectedLineEdges,
+    onPress: (project) => project!.stageManager.changeSelectedEdgeConnectLocation(Direction.Up, true),
+  },
+  {
+    id: "setSelectedEdgeSourceConnectLocationLeft",
+    defaultKey: "e s 4",
+    icon: ArrowRightFromLine,
+    when: whenHasSelectedLineEdges,
+    onPress: (project) => project!.stageManager.changeSelectedEdgeConnectLocation(Direction.Left, true),
+  },
+  {
+    id: "setSelectedEdgeSourceConnectLocationCenter",
+    defaultKey: "e s 5",
+    icon: SquareDot,
+    when: whenHasSelectedLineEdges,
+    onPress: (project) => project!.stageManager.changeSelectedEdgeConnectLocation(null, true),
+  },
+  {
+    id: "setSelectedEdgeSourceConnectLocationRight",
+    defaultKey: "e s 6",
+    icon: ArrowRightFromLine,
+    when: whenHasSelectedLineEdges,
+    onPress: (project) => project!.stageManager.changeSelectedEdgeConnectLocation(Direction.Right, true),
+  },
+  {
+    id: "setSelectedEdgeSourceConnectLocationDown",
+    defaultKey: "e s 2",
+    icon: ArrowRightFromLine,
+    when: whenHasSelectedLineEdges,
+    onPress: (project) => project!.stageManager.changeSelectedEdgeConnectLocation(Direction.Down, true),
+  },
+  {
+    id: "setSelectedEdgeTargetConnectLocationUp",
+    defaultKey: "e t 8",
+    icon: ArrowUpToLine,
+    when: whenHasSelectedLineEdges,
+    onPress: (project) => project!.stageManager.changeSelectedEdgeConnectLocation(Direction.Up),
+  },
+  {
+    id: "setSelectedEdgeTargetConnectLocationLeft",
+    defaultKey: "e t 4",
+    icon: ArrowUpToLine,
+    when: whenHasSelectedLineEdges,
+    onPress: (project) => project!.stageManager.changeSelectedEdgeConnectLocation(Direction.Left),
+  },
+  {
+    id: "setSelectedEdgeTargetConnectLocationCenter",
+    defaultKey: "e t 5",
+    icon: SquareDot,
+    when: whenHasSelectedLineEdges,
+    onPress: (project) => project!.stageManager.changeSelectedEdgeConnectLocation(null),
+  },
+  {
+    id: "setSelectedEdgeTargetConnectLocationRight",
+    defaultKey: "e t 6",
+    icon: ArrowUpToLine,
+    when: whenHasSelectedLineEdges,
+    onPress: (project) => project!.stageManager.changeSelectedEdgeConnectLocation(Direction.Right),
+  },
+  {
+    id: "setSelectedEdgeTargetConnectLocationDown",
+    defaultKey: "e t 2",
+    icon: ArrowUpToLine,
+    when: whenHasSelectedLineEdges,
+    onPress: (project) => project!.stageManager.changeSelectedEdgeConnectLocation(Direction.Down),
+  },
+  {
+    id: "setMTUEdgeArrowOuter",
+    defaultKey: "m t u o",
+    icon: Maximize2,
+    when: whenHasSelectedMTUEdges,
+    onPress: (project) => {
+      const selectedMTUEdges = project!.stageManager
+        .getSelectedAssociations()
+        .filter((edge) => edge instanceof MultiTargetUndirectedEdge);
+      for (const edge of selectedMTUEdges) {
+        edge.arrow = "outer";
+      }
+      project!.historyManager.recordStep();
+    },
+  },
+  {
+    id: "setMTUEdgeArrowInner",
+    defaultKey: "m t u i",
+    icon: Minimize2,
+    when: whenHasSelectedMTUEdges,
+    onPress: (project) => {
+      const selectedMTUEdges = project!.stageManager
+        .getSelectedAssociations()
+        .filter((edge) => edge instanceof MultiTargetUndirectedEdge);
+      for (const edge of selectedMTUEdges) {
+        edge.arrow = "inner";
+      }
+      project!.historyManager.recordStep();
+    },
+  },
+  {
+    id: "setMTUEdgeArrowNone",
+    defaultKey: "m t u n",
+    icon: Slash,
+    when: whenHasSelectedMTUEdges,
+    onPress: (project) => {
+      const selectedMTUEdges = project!.stageManager
+        .getSelectedAssociations()
+        .filter((edge) => edge instanceof MultiTargetUndirectedEdge);
+      for (const edge of selectedMTUEdges) {
+        edge.arrow = "none";
+      }
+      project!.historyManager.recordStep();
+    },
+  },
+  {
+    id: "switchMTUEdgeRenderType",
+    defaultKey: "m t u r",
+    icon: RefreshCcw,
+    when: whenHasSelectedMTUEdges,
+    onPress: (project) => {
+      const selectedMTUEdges = project!.stageManager
+        .getSelectedAssociations()
+        .filter((edge) => edge instanceof MultiTargetUndirectedEdge);
+      for (const edge of selectedMTUEdges) {
+        if (edge.renderType === "line") {
+          edge.renderType = "convex";
+        } else if (edge.renderType === "convex") {
+          edge.renderType = "circle";
+        } else if (edge.renderType === "circle") {
+          edge.renderType = "line";
+        }
+      }
+      project!.historyManager.recordStep();
+    },
+  },
+  {
+    id: "resetMTUEdgeEndpointLocations",
+    defaultKey: "m t u 5",
+    icon: AlignCenterHorizontal,
+    when: whenHasSelectedMTUEdges,
+    onPress: (project) => {
+      const selectedMTUEdges = project!.stageManager
+        .getSelectedAssociations()
+        .filter((edge) => edge instanceof MultiTargetUndirectedEdge);
+      for (const edge of selectedMTUEdges) {
+        edge.centerRate = Vector.same(0.5);
+        edge.rectRates = edge.associationList.map(() => Vector.same(0.5));
+      }
+      project!.historyManager.recordStep();
+    },
+  },
 
   /*------- 快速着色 -------*/
   {
     id: "colorSelectedRed",
     defaultKey: "; r e d",
+    icon: Palette,
+    when: whenHasSelectedColorableStageObjects,
     onPress: (project) => {
       const selectedStageObject = project!.stageManager.getStageObjects().filter((obj) => obj.isSelected);
       for (const obj of selectedStageObject) {
@@ -1443,38 +2307,66 @@ export const allKeyBinds: KeyBindItem[] = [
     },
   },
   {
+    id: "resetSelectedStageObjectColor",
+    defaultKey: "; 0",
+    icon: Slash,
+    when: whenHasSelectedColorableStageObjects,
+    onPress: (project) => project!.stageObjectColorManager.setSelectedStageObjectColor(Color.Transparent),
+  },
+  {
+    id: "setSelectedStageObjectSpecialTransparentColor",
+    defaultKey: "; t 0",
+    icon: Palette,
+    when: whenHasSelectedColorableStageObjects,
+    onPress: (project) => project!.stageObjectColorManager.setSelectedStageObjectColor(new Color(11, 45, 14, 0)),
+  },
+  {
     id: "increaseBrightness",
     defaultKey: "b .",
+    icon: Sun,
+    when: whenHasSelectedColorableStageObjects,
     onPress: (project) => ColorSmartTools.increaseBrightness(project!),
   },
   {
     id: "decreaseBrightness",
     defaultKey: "b ,",
+    icon: Moon,
+    when: whenHasSelectedColorableStageObjects,
     onPress: (project) => ColorSmartTools.decreaseBrightness(project!),
   },
   {
     id: "gradientColor",
     defaultKey: "; ,",
+    icon: Palette,
+    when: whenHasSelectedColorableStageObjects,
     onPress: (project) => ColorSmartTools.gradientColor(project!),
   },
   {
     id: "changeColorHueUp",
     defaultKey: "A-S-arrowup",
+    icon: Sun,
+    when: whenHasSelectedColorableStageObjects,
     onPress: (project) => ColorSmartTools.changeColorHueUp(project!),
   },
   {
     id: "changeColorHueDown",
     defaultKey: "A-S-arrowdown",
+    icon: Moon,
+    when: whenHasSelectedColorableStageObjects,
     onPress: (project) => ColorSmartTools.changeColorHueDown(project!),
   },
   {
     id: "changeColorHueMajorUp",
     defaultKey: "A-S-home",
+    icon: Sun,
+    when: whenHasSelectedColorableStageObjects,
     onPress: (project) => ColorSmartTools.changeColorHueMajorUp(project!),
   },
   {
     id: "changeColorHueMajorDown",
     defaultKey: "A-S-end",
+    icon: Moon,
+    when: whenHasSelectedColorableStageObjects,
     onPress: (project) => ColorSmartTools.changeColorHueMajorDown(project!),
   },
 
@@ -1482,28 +2374,71 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "toggleTextNodeSizeMode",
     defaultKey: "t t t",
+    icon: Type,
+    when: whenHasSelectedTextNodes,
     onPress: (project) => TextNodeSmartTools.ttt(project!),
   },
   {
     id: "splitTextNodes",
     defaultKey: "k e i",
+    icon: Split,
+    when: whenHasSelectedTextNodes,
     onPress: (project) => TextNodeSmartTools.kei(project!),
   },
   {
     id: "mergeTextNodes",
     defaultKey: "r u a",
+    icon: Merge,
+    when: whenHasSelectedTextNodes,
     onPress: (project) => TextNodeSmartTools.rua(project!),
   },
   {
     id: "swapTextAndDetails",
     defaultKey: "e e e e e",
+    icon: Repeat,
+    when: whenHasSelectedTextNodes,
     onPress: (project) => TextNodeSmartTools.exchangeTextAndDetails(project!),
   },
   {
     id: "createTwinTextNode",
     defaultKey: "S-y",
+    icon: GitBranch,
+    when: whenHasSelectedTextNodes,
     onPress: (project) => {
       project!.syncAssociationManager.createTwinsFromSelectedEntities();
+    },
+  },
+  {
+    id: "changeTextNodeToReferenceBlock",
+    defaultKey: "r e f",
+    icon: SquareDashedBottomCode,
+    when: whenHasSelectedTextNodes,
+    onPress: (project) => TextNodeSmartTools.changeTextNodeToReferenceBlock(project!),
+  },
+  {
+    id: "refreshReferenceBlockNode",
+    defaultKey: "r e f r",
+    icon: RefreshCcwDot,
+    when: whenHasSelectedReferenceBlockNodes,
+    onPress: (project) => {
+      project!.stageManager
+        .getSelectedEntities()
+        .filter((entity) => entity instanceof ReferenceBlockNode)
+        .filter((entity) => entity.isSelected)
+        .forEach((entity) => entity.refresh());
+    },
+  },
+  {
+    id: "goToReferenceBlockSource",
+    defaultKey: "r e f g",
+    icon: CornerUpRight,
+    when: whenHasSelectedReferenceBlockNodes,
+    onPress: (project) => {
+      project!.stageManager
+        .getSelectedEntities()
+        .filter((entity) => entity instanceof ReferenceBlockNode)
+        .filter((entity) => entity.isSelected)
+        .forEach((entity) => entity.goToSource());
     },
   },
 
@@ -1511,6 +2446,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "switchStealthMode",
     defaultKey: "j a c k a l",
+    icon: Ghost,
+    when: whenAlways,
     onPress: () => {
       Settings.isStealthModeEnabled = !Settings.isStealthModeEnabled;
       toast(Settings.isStealthModeEnabled ? "已开启潜行模式" : "已关闭潜行模式");
@@ -1521,11 +2458,15 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "removeFirstCharFromSelectedTextNodes",
     defaultKey: "C-backspace",
+    icon: Scissors,
+    when: whenHasSelectedTextNodes,
     onPress: (project) => TextNodeSmartTools.removeFirstCharFromSelectedTextNodes(project!),
   },
   {
     id: "removeLastCharFromSelectedTextNodes",
     defaultKey: "C-delete",
+    icon: Scissors,
+    when: whenHasSelectedTextNodes,
     onPress: (project) => TextNodeSmartTools.removeLastCharFromSelectedTextNodes(project!),
   },
 
@@ -1533,6 +2474,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "swapTwoSelectedEntitiesPositions",
     defaultKey: "S-r",
+    icon: Repeat,
+    when: whenKeyboardOnlyOpenWithSelectedEntities,
     onPress: (project) => {
       // 这个东西废了，直接触发了软件刷新
       // 这个东西没啥用，感觉得下掉
@@ -1552,6 +2495,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "decreaseFontSize",
     defaultKey: "C--",
+    icon: Shrink,
+    when: whenKeyboardOnlyOpenWithSelectedTextNodes,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       const selectedNodes = project!.stageManager.getSelectedEntities();
@@ -1570,6 +2515,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "increaseFontSize",
     defaultKey: "C-=",
+    icon: Expand,
+    when: whenKeyboardOnlyOpenWithSelectedTextNodes,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       const selectedNodes = project!.stageManager.getSelectedEntities();
@@ -1590,6 +2537,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "graftNodeToTree",
     defaultKey: "q e",
+    icon: GitBranch,
+    when: whenHasSelectedConnectableEntities,
     onPress: (project) => {
       ConnectNodeSmartTools.insertNodeToTree(project!);
     },
@@ -1597,6 +2546,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "removeNodeFromTree",
     defaultKey: "q r",
+    icon: Scissors,
+    when: whenHasSelectedConnectableEntities,
     onPress: (project) => {
       ConnectNodeSmartTools.removeNodeFromTree(project!);
     },
@@ -1604,6 +2555,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "selectAtCrosshair",
     defaultKey: "q q",
+    icon: Focus,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       const worldLocation = project!.camera.location.clone();
@@ -1620,6 +2573,8 @@ export const allKeyBinds: KeyBindItem[] = [
   {
     id: "addSelectAtCrosshair",
     defaultKey: "S-q",
+    icon: Focus,
+    when: whenKeyboardOnlyOpen,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
       const worldLocation = project!.camera.location.clone();
@@ -1630,6 +2585,35 @@ export const allKeyBinds: KeyBindItem[] = [
           entity.isSelected = !entity.isSelected;
         }
       }
+    },
+  },
+
+  /*------- AI 操作相关 -------*/
+  {
+    id: "generateTreeBySelectedTextNodeTextWithAI",
+    defaultKey: "g e n t t",
+    icon: Sparkle,
+    when: whenHasSelectedTextNodes,
+    onPress: (project) => {
+      if (project) TextNodeSmartTools.generateTreeBySelectedTextNodeTextWithAI(project);
+    },
+  },
+  {
+    id: "generateNetBySelectedTextNodeTextWithAI",
+    defaultKey: "g e n n t",
+    icon: Sparkle,
+    when: whenHasSelectedTextNodes,
+    onPress: (project) => {
+      if (project) TextNodeSmartTools.generateNetBySelectedTextNodeTextWithAI(project);
+    },
+  },
+  {
+    id: "generateSummaryBySelectedTextNodeTextWithAI",
+    defaultKey: "g e n s t",
+    icon: Sparkle,
+    when: whenHasSelectedTextNodes,
+    onPress: (project) => {
+      if (project) TextNodeSmartTools.generateSummaryBySelectedTextNodeTextWithAI(project);
     },
   },
 ];

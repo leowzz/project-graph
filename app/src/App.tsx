@@ -1,5 +1,6 @@
 import MyContextMenuContent from "@/components/context-menu-content";
 import RenderSubWindows from "@/components/render-sub-windows";
+import ThemeModeSwitch from "@/components/theme-mode-switch";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { Dialog } from "@/components/ui/dialog";
@@ -28,15 +29,14 @@ import { ChevronsLeftRight, Copy, Minus, Pin, PinOff, Square, X } from "lucide-r
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { cpuInfo } from "tauri-plugin-system-info-api";
-import { cn } from "./utils/cn";
-import { isMac, isWindows } from "./utils/platform";
+import { DropWindowCover } from "./DropWindowCover";
+import { ProjectTabs } from "./ProjectTabs";
+import RightToolbar from "./components/right-toolbar";
+import ToolbarContent from "./components/toolbar-content";
 import { KeyBindsUI } from "./core/service/controlService/shortcutKeysEngine/KeyBindsUI";
 import { checkAndFixShortcutStorage } from "./core/service/controlService/shortcutKeysEngine/ShortcutKeyFixer";
-import { ProjectTabs } from "./ProjectTabs";
-import { DropWindowCover } from "./DropWindowCover";
-import ToolbarContent from "./components/toolbar-content";
-import RightToolbar from "./components/right-toolbar";
-import ThemeModeSwitch from "@/components/theme-mode-switch";
+import { cn } from "./utils/cn";
+import { isMac, isWindows } from "./utils/platform";
 
 export default function App() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -405,7 +405,7 @@ export default function App() {
         {/* 右上角关闭的触发角 */}
         {isWindows && (
           <div
-            className="absolute right-0 top-0 z-50 h-1 w-1 cursor-pointer rounded-bl-xl bg-red-600 transition-all hover:h-10 hover:w-10 hover:bg-yellow-500"
+            className="absolute top-0 right-0 z-50 h-1 w-1 cursor-pointer rounded-bl-xl bg-red-600 transition-all hover:h-10 hover:w-10 hover:bg-yellow-500"
             onClick={() => getCurrentWindow().close()}
           ></div>
         )}
@@ -434,7 +434,7 @@ function WindowButtons() {
   };
 
   return (
-    <div className="bg-background shadow-xs flex h-full items-center sm:rounded-md sm:border">
+    <div className="bg-background flex h-full items-center shadow-xs sm:rounded-md sm:border">
       {isClickThroughEnabled && <span className="text-destructive font-bold">Alt + 2关闭窗口穿透点击</span>}
       {isMac ? (
         <span className="flex *:flex *:size-3 sm:px-2 sm:*:m-1">

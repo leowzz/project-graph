@@ -1868,6 +1868,97 @@ keyBinds:
     description: |
       將選中的網狀結構導出為Mermaid圖表格式並複製到剪貼板
       可用於在支持Mermaid的編輯器中粘貼顯示
+  close:
+    title: 關閉
+  createMTUEdgeConvex:
+    title: 創建凸包
+  createConnectPointFromMouseLocation:
+    title: 在鼠標位置創建質點
+  openColorPaletteWindow:
+    title: 打開調色板窗口
+  cancel:
+    title: 取消
+  discard:
+    title: 放棄更改
+  save:
+    title: 保存
+  copySelectedImageToClipboard:
+    title: 複製選中圖片到剪貼板
+  swapSelectedImageRedBlueChannels:
+    title: 交換選中圖片的紅藍通道
+  setSelectedImageAsBackground:
+    title: 設置為背景圖片
+  unsetSelectedImageAsBackground:
+    title: 取消背景圖片設置
+  saveSelectedImagesToProjectDirectory:
+    title: 保存選中圖片到工程目錄
+  resetPenStrokeColor:
+    title: 重置塗鴉顏色
+  setSelectedEdgesToDouble:
+    title: 設置選中連線為雙線
+  switchEdgeToUndirectedEdge:
+    title: 將有向連線轉化為無向連線
+  switchUndirectedEdgeToEdge:
+    title: 將無向連線轉化為有向連線
+  setSelectedEdgeSourceConnectLocationUp:
+    title: 設置起點連接位置為上方
+  setSelectedEdgeSourceConnectLocationLeft:
+    title: 設置起點連接位置為左方
+  setSelectedEdgeSourceConnectLocationCenter:
+    title: 設置起點連接位置為中心
+  setSelectedEdgeSourceConnectLocationRight:
+    title: 設置起點連接位置為右方
+  setSelectedEdgeSourceConnectLocationDown:
+    title: 設置起點連接位置為下方
+  setSelectedEdgeTargetConnectLocationUp:
+    title: 設置終點連接位置為上方
+  setSelectedEdgeTargetConnectLocationLeft:
+    title: 設置終點連接位置為左方
+  setSelectedEdgeTargetConnectLocationCenter:
+    title: 設置終點連接位置為中心
+  setSelectedEdgeTargetConnectLocationRight:
+    title: 設置終點連接位置為右方
+  setSelectedEdgeTargetConnectLocationDown:
+    title: 設置終點連接位置為下方
+  setMTUEdgeArrowOuter:
+    title: 設置多端點連線箭頭朝外
+  setMTUEdgeArrowInner:
+    title: 設置多端點連線箭頭朝內
+  setMTUEdgeArrowNone:
+    title: 隱藏多端點連線箭頭
+  switchMTUEdgeRenderType:
+    title: 切換多端點連線渲染類型
+    description: 切換多端點連線在舞臺上的顯示樣式
+  resetMTUEdgeEndpointLocations:
+    title: 重置多端點連線的端點位置
+    description: 將多端點連線的各個端點恢復到默認分佈
+  resetSelectedStageObjectColor:
+    title: 重置顏色
+    description: 重置選中物體的顏色到默認狀態
+  setSelectedStageObjectSpecialTransparentColor:
+    title: 設置為特殊透明色
+    description: 將選中的物體設置為特殊的完全透明顏色
+  changeTextNodeToReferenceBlock:
+    title: 轉換為引用塊
+    description: 將普通的文本節點轉換為對特定節點的引用
+  refreshReferenceBlockNode:
+    title: 刷新引用塊
+    description: 重新獲取引用塊的內容
+  goToReferenceBlockSource:
+    title: 跳轉到引用塊來源
+    description: 視野中心移動到引用塊指向的原節點
+  switchStealthMode:
+    title: 切換潛行模式
+    description: 在中心顯示遮罩，用於記憶力訓練
+  removeFirstCharFromSelectedTextNodes:
+    title: 首字消除
+    description: 移除所有選中文本節點的第一個字符
+  removeLastCharFromSelectedTextNodes:
+    title: 末字消除
+    description: 移除所有選中文本節點的最後一個字符
+  swapTwoSelectedEntitiesPositions:
+    title: 交換位置
+    description: 交換兩個選中實體的位置
 
 sounds:
   soundEnabled: 音效開關

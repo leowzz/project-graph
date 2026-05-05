@@ -19,6 +19,7 @@ import "driver.js/dist/driver.css";
 import i18next from "i18next";
 import { Provider } from "jotai";
 import { createRoot } from "react-dom/client";
+import { ErrorBoundary } from "react-error-boundary";
 import { initReactI18next } from "react-i18next";
 import { toast } from "sonner";
 import VConsole from "vconsole";
@@ -27,6 +28,7 @@ import App from "./App";
 import { ExtensionManager } from "./core/extension/ExtensionManager";
 import { onOpenFile } from "./core/service/GlobalMenu";
 import "./css/index.css";
+import Fallback from "./Fallback";
 
 if (import.meta.env.DEV && isMobile) {
   new VConsole();
@@ -109,7 +111,9 @@ async function renderApp(cli: boolean = false) {
     root.render(
       <Provider store={store}>
         <Toaster richColors visibleToasts={5} expand />
-        <App />
+        <ErrorBoundary FallbackComponent={Fallback}>
+          <App />
+        </ErrorBoundary>
       </Provider>,
     );
   }

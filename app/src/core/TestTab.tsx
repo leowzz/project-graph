@@ -16,7 +16,9 @@ export class TestTab extends Tab {
 
   public getComponent(): React.ComponentType {
     const TestComponent = class extends React.Component {
+      displayName = "TestComponent";
       render() {
+        throw new Error("Test error in TestTab");
         return (
           <div className="bg-background text-foreground flex h-full w-full items-center justify-center">
             <div className="text-center">
@@ -27,7 +29,6 @@ export class TestTab extends Tab {
         );
       }
     };
-    TestComponent.displayName = "TestComponent";
     return TestComponent;
   }
 }

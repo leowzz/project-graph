@@ -1,34 +1,36 @@
-import { Project } from "@/core/Project";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Project } from "@/core/Project";
 import { RecentFileManager } from "@/core/service/dataFileService/RecentFileManager";
+import { DragFileIntoStageEngine } from "@/core/service/dataManageService/dragFileIntoStageEngine/dragFileIntoStageEngine";
+import { SoundService } from "@/core/service/feedbackService/SoundService";
+import { onOpenFile } from "@/core/service/GlobalMenu";
 import { SubWindow } from "@/core/service/SubWindow";
+import { activeTabAtom } from "@/state";
 import { cn } from "@/utils/cn";
 import { PathString } from "@/utils/pathString";
+import { readPrgThumbnail } from "@/utils/readPrgThumbnail";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
+import { useAtom } from "jotai";
 import {
   DoorClosed,
   DoorOpen,
+  Eye,
+  EyeOff,
+  FileImage,
+  HardDriveDownload,
   Import,
+  Link,
   LoaderPinwheel,
   Trash2,
   X,
-  Link,
-  HardDriveDownload,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import React, { ChangeEventHandler, useEffect } from "react";
-import { Dialog } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { onOpenFile } from "@/core/service/GlobalMenu";
-import { open } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
 import { URI } from "vscode-uri";
-import { SoundService } from "@/core/service/feedbackService/SoundService";
-import { useAtom } from "jotai";
-import { activeTabAtom } from "@/state";
-import { DragFileIntoStageEngine } from "@/core/service/dataManageService/dragFileIntoStageEngine/dragFileIntoStageEngine";
 
 /**
  * 文件名隐私保护加密函数（强制使用凯撒移位）
@@ -74,6 +76,49 @@ type FolderNode = {
   files: RecentFileManager.RecentFile[];
   subFolders: Record<string, FolderNode>;
 };
+
+// 缩略图缓存（会话级别，fsPath → objectURL）
+const thumbnailCache = new Map<string, string>();
+
+function FileThumbnail({ fsPath }: { fsPath: string }) {
+  const [thumbnailUrl, setThumbnailUrl] = React.useState<string | null>(null);
+  const [loaded, setLoaded] = React.useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const cached = thumbnailCache.get(fsPath);
+    if (cached) {
+      setThumbnailUrl(cached);
+      setLoaded(true);
+      return;
+    }
+
+    readPrgThumbnail(fsPath)
+      .then((blob) => {
+        if (cancelled || !blob) return;
+        const url = URL.createObjectURL(blob);
+        thumbnailCache.set(fsPath, url);
+        if (!cancelled) {
+          setThumbnailUrl(url);
+          setLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fsPath]);
+
+  if (!loaded || !thumbnailUrl) {
+    return <FileImage className="text-muted-foreground/40 h-10 w-10" />;
+  }
+
+  return <img src={thumbnailUrl} alt="" className="h-12 w-12 rounded object-cover" />;
+}
 
 /**
  * 最近文件面板按钮
@@ -330,6 +375,7 @@ export default function RecentFilesWindow({ winId = "" }: { winId?: string }) {
                   SoundService.play.mouseClickButton();
                 }}
               >
+                <FileThumbnail fsPath={file.uri.fsPath} />
                 {isPrivacyMode
                   ? encryptFileName(
                       PathString.getShortedFileName(PathString.absolute2file(decodeURI(file.uri.toString())), 12),
@@ -346,7 +392,7 @@ export default function RecentFilesWindow({ winId = "" }: { winId?: string }) {
                         toast.warning("删除失败");
                       }
                     }}
-                    className="bg-destructive absolute -right-2 -top-2 cursor-pointer rounded-full transition-colors hover:scale-110"
+                    className="bg-destructive absolute -top-2 -right-2 cursor-pointer rounded-full transition-colors hover:scale-110"
                   >
                     <X size={16} />
                   </button>
@@ -375,7 +421,7 @@ export default function RecentFilesWindow({ winId = "" }: { winId?: string }) {
                         );
                         addCurrentFileToCurrentProject(filePath, true);
                       }}
-                      className="bg-primary absolute -right-2 -top-2 cursor-pointer rounded-full transition-colors hover:scale-110"
+                      className="bg-primary absolute -top-2 -right-2 cursor-pointer rounded-full transition-colors hover:scale-110"
                     >
                       <HardDriveDownload size={16} />
                     </button>
@@ -428,7 +474,7 @@ export default function RecentFilesWindow({ winId = "" }: { winId?: string }) {
           value={searchString}
           autoFocus
           // 搜索结果只有一条的时候，在页面下方文字中提示一下用户说按下回车键直接能够打开这个文件
-          className={cn("min-w-32 max-w-96 flex-1", {
+          className={cn("max-w-96 min-w-32 flex-1", {
             "border-green-500 bg-green-500/10": recentFilesFiltered.length === 1,
           })}
         />
@@ -579,6 +625,7 @@ export default function RecentFilesWindow({ winId = "" }: { winId?: string }) {
                 SoundService.play.mouseClickButton();
               }}
             >
+              <FileThumbnail fsPath={file.uri.fsPath} />
               {isLocalPrivacyMode
                 ? encryptFileName(
                     PathString.getShortedFileName(PathString.absolute2file(decodeURI(file.uri.toString())), 15),
@@ -595,7 +642,7 @@ export default function RecentFilesWindow({ winId = "" }: { winId?: string }) {
                       toast.warning("删除失败");
                     }
                   }}
-                  className="bg-destructive absolute -right-2 -top-2 cursor-pointer rounded-full transition-colors hover:scale-110"
+                  className="bg-destructive absolute -top-2 -right-2 cursor-pointer rounded-full transition-colors hover:scale-110"
                 >
                   <X size={20} />
                 </button>
@@ -619,7 +666,7 @@ export default function RecentFilesWindow({ winId = "" }: { winId?: string }) {
                     const filePath = PathString.uppercaseAbsolutePathDiskChar(file.uri.fsPath).replaceAll("\\", "/");
                     addCurrentFileToCurrentProject(filePath, true);
                   }}
-                  className="bg-primary absolute -right-2 -top-2 cursor-pointer rounded-full transition-colors hover:scale-110"
+                  className="bg-primary absolute -top-2 -right-2 cursor-pointer rounded-full transition-colors hover:scale-110"
                 >
                   <HardDriveDownload size={20} />
                 </button>

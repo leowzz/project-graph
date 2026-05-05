@@ -64,7 +64,7 @@ export default function SettingsTab() {
 
   useEffect(() => {
     fuse.current = new Fuse(
-      Object.keys(settingsSchema._def.shape()).map(
+      Object.keys(settingsSchema.shape).map(
         (key) =>
           ({
             key,

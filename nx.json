@@ -26,5 +26,6 @@
       "cache": true
     }
   },
-  "defaultBase": "next"
+  "defaultBase": "next",
+  "analytics": false
 }

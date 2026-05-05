@@ -17,6 +17,7 @@ import { averageColors, Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { toast } from "sonner";
 import { v4 } from "uuid";
+import AIWindow, { setAIWindowInitialText } from "@/sub/AIWindow";
 
 export namespace TextNodeSmartTools {
   /**
@@ -600,7 +601,7 @@ export namespace TextNodeSmartTools {
     const text = selectedNode.text;
 
     // 解析引用格式：[[文件名]] 或 [[文件名#Section名]]
-    let referenceName = "";
+    let referenceName;
     if (text.trim().startsWith("[[") && text.trim().endsWith("]]")) {
       referenceName = text.trim().slice(2, -2);
     } else {
@@ -661,5 +662,39 @@ export namespace TextNodeSmartTools {
     // 步骤6：删除原文本节点
     project.stageManager.delete(selectedNode);
     await project.referenceManager.insertRefDataToSourcePrgFile(fileName, sectionName);
+  }
+
+  export async function generateTreeBySelectedTextNodeTextWithAI(project: Project) {
+    const selectedTextNodes = project.stageManager.getSelectedEntities().filter((it) => it instanceof TextNode);
+    if (selectedTextNodes.length === 0) {
+      toast.error("请先选中文本节点");
+      return;
+    }
+    const texts = selectedTextNodes.map((node) => (node as TextNode).text);
+    const combinedText = texts.join("\n\n");
+    setAIWindowInitialText(combinedText, "请分析以下文本的结构，提取关键概念和关系，生成树形节点图：");
+    AIWindow.open();
+  }
+  export async function generateNetBySelectedTextNodeTextWithAI(project: Project) {
+    const selectedTextNodes = project.stageManager.getSelectedEntities().filter((it) => it instanceof TextNode);
+    if (selectedTextNodes.length === 0) {
+      toast.error("请先选中文本节点");
+      return;
+    }
+    const texts = selectedTextNodes.map((node) => (node as TextNode).text);
+    const combinedText = texts.join("\n\n");
+    setAIWindowInitialText(combinedText, "请分析以下文本中的因果关系、条件关系、时间顺序等逻辑关系，生成网状关系图：");
+    AIWindow.open();
+  }
+  export async function generateSummaryBySelectedTextNodeTextWithAI(project: Project) {
+    const selectedTextNodes = project.stageManager.getSelectedEntities().filter((it) => it instanceof TextNode);
+    if (selectedTextNodes.length === 0) {
+      toast.error("请先选中文本节点");
+      return;
+    }
+    const texts = selectedTextNodes.map((node) => (node as TextNode).text);
+    const combinedText = texts.join("\n\n");
+    setAIWindowInitialText(combinedText, "请总结以下文本的核心内容：");
+    AIWindow.open();
   }
 }

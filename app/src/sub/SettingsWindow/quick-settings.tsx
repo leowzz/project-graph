@@ -30,9 +30,7 @@ function SettingTypeBadge({ type }: { type: QuickSettingsManager.SettingType }) 
 export default function QuickSettingsTab() {
   const { t } = useTranslation("settings");
   const [quickSettings, setQuickSettings] = useState<QuickSettingsManager.QuickSettingItem[]>([]);
-  const [availableSettings, setAvailableSettings] = useState<Array<keyof ReturnType<typeof settingsSchema._def.shape>>>(
-    [],
-  );
+  const [availableSettings, setAvailableSettings] = useState<Array<keyof typeof settingsSchema.shape>>([]);
 
   useEffect(() => {
     loadData();
@@ -48,12 +46,12 @@ export default function QuickSettingsTab() {
     setAvailableSettings(available);
   };
 
-  const handleAdd = async (settingKey: keyof ReturnType<typeof settingsSchema._def.shape>) => {
+  const handleAdd = async (settingKey: keyof typeof settingsSchema.shape) => {
     await QuickSettingsManager.addQuickSetting({ settingKey });
     await loadData();
   };
 
-  const handleRemove = async (settingKey: keyof ReturnType<typeof settingsSchema._def.shape>) => {
+  const handleRemove = async (settingKey: keyof typeof settingsSchema.shape) => {
     await QuickSettingsManager.removeQuickSetting(settingKey);
     await loadData();
   };

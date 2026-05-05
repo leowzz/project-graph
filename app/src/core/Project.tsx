@@ -77,12 +77,13 @@ import { createDefaultMetadata, isValidMetadata, PrgMetadata } from "@/types/met
 import { deserialize, serialize } from "@graphif/serializer";
 import { Decoder, Encoder } from "@msgpack/msgpack";
 import { BlobReader, BlobWriter, Uint8ArrayReader, Uint8ArrayWriter, ZipReader, ZipWriter } from "@zip.js/zip.js";
+import { File } from "lucide-react";
 import md5 from "md5";
 import mime from "mime";
-import { File } from "lucide-react";
 import React from "react";
 import { URI } from "vscode-uri";
 import { AutoSaveBackupService } from "./service/dataFileService/AutoSaveBackupService";
+import { generateThumbnail } from "./service/dataGenerateService/generateThumbnail";
 import { ProjectUpgrader } from "./stage/ProjectUpgrader";
 import { ReferenceManager } from "./stage/stageManager/concreteMethods/StageReferenceManager";
 import { Tab } from "./Tab";
@@ -405,6 +406,15 @@ export class Project extends Tab {
     // 添加附件
     for (const [uuid, attachment] of this.attachments.entries()) {
       writer.add(`attachments/${uuid}.${mime.getExtension(attachment.type)}`, new BlobReader(attachment));
+    }
+    // 添加缩略图
+    try {
+      const thumbnailBlob = await generateThumbnail(this);
+      if (thumbnailBlob) {
+        writer.add("thumbnail.png", new BlobReader(thumbnailBlob));
+      }
+    } catch {
+      // 缩略图生成失败不阻止保存
     }
     await writer.close();
 

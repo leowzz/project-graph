@@ -48,7 +48,10 @@ export default function ExtensionsTab() {
                 {loading ? (
                   <div className="text-muted-foreground p-4 text-center text-sm">加载中...</div>
                 ) : extensions.length === 0 ? (
-                  <div className="text-muted-foreground p-4 text-center text-sm">未发现扩展</div>
+                  <div className="text-muted-foreground p-4 text-center text-sm">
+                    <p>未发现扩展</p>
+                    <p>可以通过安装本地prg文件来添加扩展</p>
+                  </div>
                 ) : (
                   extensions.map((ext) => {
                     const metadata = ext.metadata.extension;
@@ -56,7 +59,15 @@ export default function ExtensionsTab() {
                     return (
                       <SidebarMenuItem key={id}>
                         <SidebarMenuButton onClick={() => setSelectedId(id)} isActive={selectedId === id}>
-                          <Blocks />
+                          {ext.iconBlobUrl ? (
+                            <img src={ext.iconBlobUrl} className="size-4 shrink-0 object-contain" alt="" />
+                          ) : ext.iconSvgText ? (
+                            <span className="size-4 shrink-0" dangerouslySetInnerHTML={{ __html: ext.iconSvgText }} />
+                          ) : ext.iconDataUrl ? (
+                            <img src={ext.iconDataUrl} className="size-4 shrink-0 object-contain" alt="" />
+                          ) : (
+                            <Blocks />
+                          )}
                           <span className="flex-1 truncate">{metadata?.name || "未知扩展"}</span>
                           <span className="opacity-50">v{metadata?.version || "0.0.0"}</span>
                         </SidebarMenuButton>
@@ -75,7 +86,7 @@ export default function ExtensionsTab() {
         ) : (
           <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-4">
             <Blocks className="size-16 opacity-20" />
-            <p>{loading ? "正在加载扩展列表..." : "请选择一个扩展查看详情"}</p>
+            <p>{loading ? "正在加载扩展列表..." : "请在侧边栏选择一个扩展查看详情"}</p>
           </div>
         )}
       </div>
