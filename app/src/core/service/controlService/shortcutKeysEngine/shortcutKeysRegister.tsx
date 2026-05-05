@@ -1631,14 +1631,14 @@ export const allKeyBinds: KeyBindItem[] = [
     defaultKey: "o k k",
     icon: CircleCheck,
     when: whenHasSelectedTextNodes,
-    onPress: (project) => TextNodeSmartTools.okk(project!),
+    onPress: () => TextNodeSmartTools.okk(),
   },
   {
     id: "toggleCheckErrorOnTextNodes",
     defaultKey: "e r r",
     icon: CircleSlash,
     when: whenHasSelectedTextNodes,
-    onPress: (project) => TextNodeSmartTools.err(project!),
+    onPress: () => TextNodeSmartTools.err(),
   },
   {
     id: "reverseImageColors",

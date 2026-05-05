@@ -457,45 +457,12 @@ export namespace TextNodeSmartTools {
     }
   }
 
-  const specialColorList = [new Color(59, 114, 60), new Color(61, 10, 11)];
-  const specialCharPrefix = ["✅", "❌"];
-
-  export function okk(project: Project) {
-    const selectedTextNodes = project.stageManager.getSelectedEntities().filter((node) => node instanceof TextNode);
-    for (const node of selectedTextNodes) {
-      if (specialColorList.some((value) => value.equals(node.color))) {
-        node.color = Color.Transparent;
-      } else {
-        node.color = new Color(59, 114, 60);
-      }
-      // 向孪生兄弟同步 color
-      project.syncAssociationManager.syncFrom(node, "color");
-      if (specialCharPrefix.some((value) => node.text.startsWith(value + " "))) {
-        node.rename(node.text.slice(2));
-      } else {
-        node.rename("✅ " + node.text);
-      }
-    }
-    project.stageManager.updateReferences();
+  export function okk() {
+    toast.warning("此功能已迁移到插件，相见插件系统 与 https://github.com/graphif/extension-text-node-todolist");
   }
 
-  export function err(project: Project) {
-    const selectedTextNodes = project.stageManager.getSelectedEntities().filter((node) => node instanceof TextNode);
-    for (const node of selectedTextNodes) {
-      if (specialColorList.some((value) => value.equals(node.color))) {
-        node.color = Color.Transparent;
-      } else {
-        node.color = new Color(61, 10, 11);
-      }
-      // 向孪生兄弟同步 color
-      project.syncAssociationManager.syncFrom(node, "color");
-      if (specialCharPrefix.some((value) => node.text.startsWith(value + " "))) {
-        node.rename(node.text.slice(2));
-      } else {
-        node.rename("❌ " + node.text);
-      }
-    }
-    project.stageManager.updateReferences();
+  export function err() {
+    toast.warning("此功能已迁移到插件，相见插件系统 与 https://github.com/graphif/extension-text-node-todolist");
   }
 
   /**
