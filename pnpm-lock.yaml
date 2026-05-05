@@ -296,6 +296,9 @@ importers:
       "@swc-jotai/react-refresh":
         specifier: ^0.5.0
         version: 0.5.0
+      "@tailwindcss/typography":
+        specifier: ^0.5.19
+        version: 0.5.19(tailwindcss@4.2.4)
       "@tailwindcss/vite":
         specifier: ^4.2.4
         version: 4.2.4(rolldown-vite@7.3.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(less@4.2.2)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))
@@ -537,8 +540,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0(@farmfe/core@1.7.10(@types/node@25.6.0))(@nuxt/kit@3.17.7)(@nuxt/schema@3.17.7)(esbuild@0.27.7)(rolldown-vite@7.3.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(less@4.2.2)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))(rollup@3.29.5)(webpack@5.100.1(esbuild@0.27.7))
       unplugin-original-class-name:
-        specifier: ^1.0.0
-        version: 1.0.0(@farmfe/core@1.7.10(@types/node@25.6.0))(@nuxt/kit@3.17.7)(@nuxt/schema@3.17.7)(esbuild@0.27.7)(rolldown-vite@7.3.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(less@4.2.2)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))(rollup@3.29.5)(webpack@5.100.1(esbuild@0.27.7))
+        specifier: ^1.0.1
+        version: 1.0.1(@farmfe/core@1.7.10(@types/node@25.6.0))(@nuxt/kit@3.17.7)(@nuxt/schema@3.17.7)(esbuild@0.27.7)(rolldown-vite@7.3.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(less@4.2.2)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))(rollup@3.29.5)(webpack@5.100.1(esbuild@0.27.7))
       use-file-picker:
         specifier: 2.1.4
         version: 2.1.4(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react@19.1.0)
@@ -586,8 +589,8 @@ importers:
         specifier: workspace:*
         version: link:../serializer
       unplugin-original-class-name:
-        specifier: ^1.0.0
-        version: 1.0.0(@farmfe/core@1.7.10(@types/node@25.6.0))(@nuxt/kit@3.17.7)(@nuxt/schema@3.17.7)(esbuild@0.27.7)(rollup@3.29.5)(vite@6.3.5(@types/node@25.6.0)(jiti@2.6.1)(less@4.2.2)(lightningcss@1.32.0)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))(webpack@5.100.1(esbuild@0.27.7))
+        specifier: ^1.0.1
+        version: 1.0.1(@farmfe/core@1.7.10(@types/node@25.6.0))(@nuxt/kit@3.17.7)(@nuxt/schema@3.17.7)(esbuild@0.27.7)(rollup@3.29.5)(vite@6.3.5(@types/node@25.6.0)(jiti@2.6.1)(less@4.2.2)(lightningcss@1.32.0)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))(webpack@5.100.1(esbuild@0.27.7))
     devDependencies:
       tsdown:
         specifier: "catalog:"
@@ -627,8 +630,8 @@ importers:
         specifier: workspace:*
         version: link:../serializer
       unplugin-original-class-name:
-        specifier: ^1.0.0
-        version: 1.0.0(@farmfe/core@1.7.10(@types/node@25.6.0))(@nuxt/kit@3.17.7)(@nuxt/schema@3.17.7)(esbuild@0.27.7)(rollup@3.29.5)(vite@6.3.5(@types/node@25.6.0)(jiti@2.6.1)(less@4.2.2)(lightningcss@1.32.0)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))(webpack@5.100.1(esbuild@0.27.7))
+        specifier: ^1.0.1
+        version: 1.0.1(@farmfe/core@1.7.10(@types/node@25.6.0))(@nuxt/kit@3.17.7)(@nuxt/schema@3.17.7)(esbuild@0.27.7)(rollup@3.29.5)(vite@6.3.5(@types/node@25.6.0)(jiti@2.6.1)(less@4.2.2)(lightningcss@1.32.0)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))(webpack@5.100.1(esbuild@0.27.7))
     devDependencies:
       tsdown:
         specifier: "catalog:"
@@ -3437,16 +3440,6 @@ packages:
       rollup:
         optional: true
 
-  "@rollup/pluginutils@5.2.0":
-    resolution:
-      { integrity: sha512-qWJ2ZTbmumwiLFomfzTyt5Kng4hwPi9rwCYN4SHb6eaRU1KNO4ccxINHr/VhH4GgPlt1XfSTLX2LBTme8ne4Zw== }
-    engines: { node: ">=14.0.0" }
-    peerDependencies:
-      rollup: ^1.20.0||^2.0.0||^3.0.0||^4.0.0
-    peerDependenciesMeta:
-      rollup:
-        optional: true
-
   "@rollup/pluginutils@5.3.0":
     resolution:
       { integrity: sha512-5EdhGZtnu3V88ces7s53hhfK5KSASnJZv8Lulpc04cWO3REESroJXg73DFsOmgbU2BhwV0E20bu2IDZb3VKW4Q== }
@@ -3891,6 +3884,12 @@ packages:
     resolution:
       { integrity: sha512-9El/iI069DKDSXwTvB9J4BwdO5JhRrOweGaK25taBAvBXyXqJAX+Jqdvs8r8gKpsI/1m0LeJLyQYTf/WLrBT1Q== }
     engines: { node: ">= 20" }
+
+  "@tailwindcss/typography@0.5.19":
+    resolution:
+      { integrity: sha512-w31dd8HOx3k9vPtcQh5QHP9GwKcgbMp87j58qi6xgiBnFFtKEAgCWnDw4qUT8aHwkCp8bKvb/KGKWWHedP0AAg== }
+    peerDependencies:
+      tailwindcss: ">=3.0.0 || insiders || >=4.0.0-alpha.20 || >=4.0.0-beta.1"
 
   "@tailwindcss/vite@4.2.4":
     resolution:
@@ -4505,12 +4504,6 @@ packages:
       { integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ== }
     peerDependencies:
       acorn: ^6.0.0 || ^7.0.0 || ^8.0.0
-
-  acorn@8.15.0:
-    resolution:
-      { integrity: sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg== }
-    engines: { node: ">=0.4.0" }
-    hasBin: true
 
   acorn@8.16.0:
     resolution:
@@ -5172,6 +5165,12 @@ packages:
     resolution:
       { integrity: sha512-u/O3vwbptzhMs3L1fQE82ZSLHQQfto5gyZzwteVIEyeaY5Fc7R4dapF/BvRoSYFeqfBk4m0V1Vafq5Pjv25wvA== }
     engines: { node: ">= 6" }
+
+  cssesc@3.0.0:
+    resolution:
+      { integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg== }
+    engines: { node: ">=4" }
+    hasBin: true
 
   csstype@3.2.3:
     resolution:
@@ -7111,10 +7110,6 @@ packages:
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  magic-string@0.30.19:
-    resolution:
-      { integrity: sha512-2N21sPY9Ws53PZvsEpVtNuSW+ScYbQdp4b9qUaL+9QkHUrGFKo56Lg9Emg5s9V/qrtNBmiR01sYhUOwu3H+VOw== }
-
   magic-string@0.30.21:
     resolution:
       { integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ== }
@@ -7934,6 +7929,11 @@ packages:
     resolution:
       { integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg== }
     engines: { node: ">= 0.4" }
+
+  postcss-selector-parser@6.0.10:
+    resolution:
+      { integrity: sha512-IQ7TZdoaqbT+LCpShg46jnZVlhWD2w6iQYAcYXfHARZ7X1t/UGhhceQDs5X0cGqKvYlHNOuv7Oa1xmb0oQuA3w== }
+    engines: { node: ">=4" }
 
   postcss@8.5.13:
     resolution:
@@ -9461,9 +9461,9 @@ packages:
       webpack:
         optional: true
 
-  unplugin-original-class-name@1.0.0:
+  unplugin-original-class-name@1.0.1:
     resolution:
-      { integrity: sha512-pFwfAXpS4crBxRLVwHEG2R7nw3AulElV08jUNnTpnMaq2mMvAMPWKg53B42TA9sD6SiMNkopHu43SzIS12LBHA== }
+      { integrity: sha512-aMWiq2KbDNdlDkwUkEH1kHN7l3CxqLb7iCuDbRY/igxgYRniudtzyoDdKy47Aks9R+nwRKog6Z45yHWlA6YyOg== }
     peerDependencies:
       "@farmfe/core": ">=1"
       "@nuxt/kit": ^3
@@ -9501,11 +9501,6 @@ packages:
   unplugin@2.3.11:
     resolution:
       { integrity: sha512-5uKD0nqiYVzlmCRs01Fhs2BdkEgBS3SAVP6ndrBsuK42iC2+JHyxM05Rm9G8+5mkmRtzMZGY8Ct5+mliZxU/Ww== }
-    engines: { node: ">=18.12.0" }
-
-  unplugin@2.3.5:
-    resolution:
-      { integrity: sha512-RyWSb5AHmGtjjNQ6gIlA67sHOsWpsbWpwDokLwTcejVdOjEkJZh7QKu14J00gDDVSh8kGH4KYC/TNBceXFZhtw== }
     engines: { node: ">=18.12.0" }
 
   unrun@0.2.37:
@@ -12574,14 +12569,6 @@ snapshots:
     optionalDependencies:
       rollup: 3.29.5
 
-  "@rollup/pluginutils@5.2.0(rollup@3.29.5)":
-    dependencies:
-      "@types/estree": 1.0.8
-      estree-walker: 2.0.2
-      picomatch: 4.0.4
-    optionalDependencies:
-      rollup: 3.29.5
-
   "@rollup/pluginutils@5.3.0(rollup@3.29.5)":
     dependencies:
       "@types/estree": 1.0.8
@@ -12847,6 +12834,11 @@ snapshots:
       "@tailwindcss/oxide-wasm32-wasi": 4.2.4
       "@tailwindcss/oxide-win32-arm64-msvc": 4.2.4
       "@tailwindcss/oxide-win32-x64-msvc": 4.2.4
+
+  "@tailwindcss/typography@0.5.19(tailwindcss@4.2.4)":
+    dependencies:
+      postcss-selector-parser: 6.0.10
+      tailwindcss: 4.2.4
 
   "@tailwindcss/vite@4.2.4(rolldown-vite@7.3.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(less@4.2.2)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))":
     dependencies:
@@ -13421,8 +13413,6 @@ snapshots:
     dependencies:
       acorn: 8.16.0
 
-  acorn@8.15.0: {}
-
   acorn@8.16.0: {}
 
   ai@6.0.174(zod@4.4.3):
@@ -13993,6 +13983,8 @@ snapshots:
       source-map-js: 1.2.1
 
   css-what@6.2.2: {}
+
+  cssesc@3.0.0: {}
 
   csstype@3.2.3: {}
 
@@ -15777,10 +15769,6 @@ snapshots:
     dependencies:
       react: 19.1.0
 
-  magic-string@0.30.19:
-    dependencies:
-      "@jridgewell/sourcemap-codec": 1.5.5
-
   magic-string@0.30.21:
     dependencies:
       "@jridgewell/sourcemap-codec": 1.5.5
@@ -16865,6 +16853,11 @@ snapshots:
       - react
 
   possible-typed-array-names@1.1.0: {}
+
+  postcss-selector-parser@6.0.10:
+    dependencies:
+      cssesc: 3.0.0
+      util-deprecate: 1.0.2
 
   postcss@8.5.13:
     dependencies:
@@ -18320,11 +18313,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  unplugin-original-class-name@1.0.0(@farmfe/core@1.7.10(@types/node@25.6.0))(@nuxt/kit@3.17.7)(@nuxt/schema@3.17.7)(esbuild@0.27.7)(rolldown-vite@7.3.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(less@4.2.2)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))(rollup@3.29.5)(webpack@5.100.1(esbuild@0.27.7)):
+  unplugin-original-class-name@1.0.1(@farmfe/core@1.7.10(@types/node@25.6.0))(@nuxt/kit@3.17.7)(@nuxt/schema@3.17.7)(esbuild@0.27.7)(rolldown-vite@7.3.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(less@4.2.2)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))(rollup@3.29.5)(webpack@5.100.1(esbuild@0.27.7)):
     dependencies:
-      "@rollup/pluginutils": 5.2.0(rollup@3.29.5)
-      magic-string: 0.30.19
-      unplugin: 2.3.5
+      "@rollup/pluginutils": 5.3.0(rollup@3.29.5)
+      magic-string: 0.30.21
+      unplugin: 2.3.11
       yaml: 2.8.4
     optionalDependencies:
       "@farmfe/core": 1.7.10(@types/node@25.6.0)
@@ -18335,11 +18328,11 @@ snapshots:
       vite: rolldown-vite@7.3.1(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@types/node@25.6.0)(esbuild@0.27.7)(jiti@2.6.1)(less@4.2.2)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4)
       webpack: 5.100.1(esbuild@0.27.7)
 
-  unplugin-original-class-name@1.0.0(@farmfe/core@1.7.10(@types/node@25.6.0))(@nuxt/kit@3.17.7)(@nuxt/schema@3.17.7)(esbuild@0.27.7)(rollup@3.29.5)(vite@6.3.5(@types/node@25.6.0)(jiti@2.6.1)(less@4.2.2)(lightningcss@1.32.0)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))(webpack@5.100.1(esbuild@0.27.7)):
+  unplugin-original-class-name@1.0.1(@farmfe/core@1.7.10(@types/node@25.6.0))(@nuxt/kit@3.17.7)(@nuxt/schema@3.17.7)(esbuild@0.27.7)(rollup@3.29.5)(vite@6.3.5(@types/node@25.6.0)(jiti@2.6.1)(less@4.2.2)(lightningcss@1.32.0)(sass-embedded@1.89.2)(terser@5.46.2)(tsx@4.21.0)(yaml@2.8.4))(webpack@5.100.1(esbuild@0.27.7)):
     dependencies:
-      "@rollup/pluginutils": 5.2.0(rollup@3.29.5)
-      magic-string: 0.30.19
-      unplugin: 2.3.5
+      "@rollup/pluginutils": 5.3.0(rollup@3.29.5)
+      magic-string: 0.30.21
+      unplugin: 2.3.11
       yaml: 2.8.4
     optionalDependencies:
       "@farmfe/core": 1.7.10(@types/node@25.6.0)
@@ -18366,12 +18359,6 @@ snapshots:
     dependencies:
       "@jridgewell/remapping": 2.3.5
       acorn: 8.16.0
-      picomatch: 4.0.4
-      webpack-virtual-modules: 0.6.2
-
-  unplugin@2.3.5:
-    dependencies:
-      acorn: 8.15.0
       picomatch: 4.0.4
       webpack-virtual-modules: 0.6.2
 

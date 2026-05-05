@@ -26,6 +26,6 @@
   "dependencies": {
     "@graphif/data-structures": "workspace:*",
     "@graphif/serializer": "workspace:*",
-    "unplugin-original-class-name": "^1.0.0"
+    "unplugin-original-class-name": "^1.0.1"
   }
 }

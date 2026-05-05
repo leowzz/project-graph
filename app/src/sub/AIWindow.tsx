@@ -9,14 +9,15 @@ import { SubWindow } from "@/core/service/SubWindow";
 import { activeTabAtom } from "@/state";
 import { cn } from "@/utils/cn";
 import { useChat } from "@ai-sdk/react";
-import { Vector } from "@graphif/data-structures";
+import { Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@radix-ui/react-collapsible";
 import type { UIMessage } from "ai";
 import { useAtom } from "jotai";
-import { Bot, Check, ChevronRight, FolderOpen, Send, Sparkles, Square, User, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Bot, Check, ChevronRight, FolderOpen, Paperclip, Send, Sparkles, Square, User, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { getOriginalNameOf } from "virtual:original-class-name";
 
 export default function AIWindow({ winId = "" }: { winId?: string }) {
   const [tab] = useAtom(activeTabAtom);
@@ -37,11 +38,25 @@ export default function AIWindow({ winId = "" }: { winId?: string }) {
   return <AIChatPanel key={project.uri.toString()} project={project} winId={winId} />;
 }
 
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function getContrastTextColor(bg: Color): string {
+  const luminance = (0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b) / 255;
+  return luminance > 0.6 ? "#000" : "#fff";
+}
+
+function isEntity(
+  obj: unknown,
+): obj is { isSelected: boolean; collisionBox: { getRectangle(): Rectangle }; color?: Color } {
+  return typeof obj === "object" && obj !== null && "isSelected" in obj && "collisionBox" in obj;
+}
+
 function AIChatPanel({ project, winId }: { project: Project; winId: string }) {
   const [inputValue, setInputValue] = useState("");
   const messagesElRef = useRef<HTMLDivElement>(null);
   const [showTokenCount] = Settings.use("aiShowTokenCount");
   const transport = useMemo(() => project.aiEngine.createTransport(project), [project]);
+  const [selectedCount, setSelectedCount] = useState(0);
 
   const { messages, sendMessage, stop, status, error } = useChat<UIMessage<AIMessageMetadata>>({
     transport,
@@ -58,10 +73,19 @@ function AIChatPanel({ project, winId }: { project: Project; winId: string }) {
     if (error) toast.error(error.message);
   }, [error]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSelectedCount(project.stageManager.getSelectedEntities().length);
+    }, 300);
+    return () => clearInterval(interval);
+  }, [project]);
+
   function handleUserSend() {
     const text = inputValue.trim();
     if (!text || requesting) return;
-    sendMessage({ text });
+    const selectedEntities = project.stageManager.getSelectedEntities();
+    const prefix = selectedEntities.length > 0 ? selectedEntities.map((it) => `\`${it.uuid}\``).join(" ") : "";
+    sendMessage({ text: prefix + text });
     setInputValue("");
   }
 
@@ -71,6 +95,55 @@ function AIChatPanel({ project, winId }: { project: Project; winId: string }) {
       handleUserSend();
     }
   }
+
+  const UuidCode = useCallback(
+    ({ children, ...props }: any) => {
+      const text = typeof children === "string" ? children : String(children ?? "");
+
+      if (!UUID_V4_RE.test(text)) {
+        return <code {...props}>{children}</code>;
+      }
+
+      const stageObject = project.stageManager.get(text);
+      if (!stageObject || !isEntity(stageObject)) {
+        return <code {...props}>{children}</code>;
+      }
+
+      const hasColor = "color" in stageObject && stageObject.color instanceof Color;
+      const bgColor = hasColor ? (stageObject.color as Color).toHexStringWithoutAlpha() : undefined;
+      const textColor = hasColor ? getContrastTextColor(stageObject.color as Color) : undefined;
+
+      const hasText = "text" in stageObject && typeof stageObject.text === "string";
+      const textPreview = hasText
+        ? `${(stageObject.text as string).split("\n")[0]} `
+        : `${getOriginalNameOf(stageObject.constructor)} ${text}`;
+
+      const handleClick = () => {
+        project.stageManager.clearSelectAll();
+        stageObject.isSelected = true;
+        const center = stageObject.collisionBox.getRectangle().center;
+        project.camera.bombMove(center);
+      };
+
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className="hover:ring-primary/50 inline-flex cursor-pointer items-center rounded px-1.5 py-0.5 text-xs transition-all hover:ring-2"
+              style={bgColor ? { backgroundColor: bgColor, color: textColor } : undefined}
+              onClick={handleClick}
+            >
+              {textPreview}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{text}</TooltipContent>
+        </Tooltip>
+      );
+    },
+    [project],
+  );
+
+  const markdownComponents = useMemo(() => ({ code: UuidCode }), [UuidCode]);
 
   return (
     <div className="from-background via-background to-muted/30 flex h-full flex-col bg-gradient-to-b">
@@ -100,7 +173,7 @@ function AIChatPanel({ project, winId }: { project: Project; winId: string }) {
         ) : (
           <div className="flex flex-col gap-4">
             {messages.map((message) => (
-              <MessageBubble key={message.id} message={message as any} />
+              <MessageBubble key={message.id} message={message as any} components={markdownComponents} />
             ))}
           </div>
         )}
@@ -108,6 +181,12 @@ function AIChatPanel({ project, winId }: { project: Project; winId: string }) {
 
       <div className="border-border/70 border-t p-3">
         <div className="mb-2 flex items-center gap-2 text-xs">
+          {selectedCount > 0 && (
+            <>
+              <Paperclip className="size-3.5" />
+              <span>已选中 {selectedCount} 个节点</span>
+            </>
+          )}
           {showTokenCount && (
             <Tooltip>
               <TooltipTrigger>
@@ -163,7 +242,13 @@ function formatTokenCount(value: number) {
   return value.toLocaleString();
 }
 
-function MessageBubble({ message }: { message: any }) {
+function MessageBubble({
+  message,
+  components,
+}: {
+  message: any;
+  components?: Record<string, React.ComponentType<any>>;
+}) {
   const isUser = message.role === "user";
   const parts = Array.isArray(message.parts) ? message.parts : [];
   const bubbles = isUser ? [parts] : splitPartsByStepStart(parts);
@@ -181,7 +266,7 @@ function MessageBubble({ message }: { message: any }) {
             <div
               key={bubbleIndex}
               className={cn(
-                "flex cursor-text select-text flex-col gap-2 rounded-2xl px-3 py-2 text-sm",
+                "flex cursor-text flex-col gap-2 rounded-2xl px-3 py-2 text-sm select-text",
                 isUser
                   ? "bg-accent text-accent-foreground rounded-br-md"
                   : "bg-card border-border/70 rounded-bl-md border shadow-sm",
@@ -189,23 +274,27 @@ function MessageBubble({ message }: { message: any }) {
             >
               {bubbleParts.length > 0 ? (
                 bubbleParts.map((part: any, index: number) => (
-                  <MessagePart key={part.toolCallId ?? `${part.type}-${bubbleIndex}-${index}`} part={part} />
+                  <MessagePart
+                    key={part.toolCallId ?? `${part.type}-${bubbleIndex}-${index}`}
+                    part={part}
+                    components={components}
+                  />
                 ))
               ) : (
-                <Markdown source={String(message.content ?? "")} />
+                <Markdown source={String(message.content ?? "")} components={components} />
               )}
             </div>
           ))
         ) : (
           <div
             className={cn(
-              "cursor-text select-text rounded-2xl px-3 py-2 text-sm",
+              "cursor-text rounded-2xl px-3 py-2 text-sm select-text",
               isUser
                 ? "bg-accent text-accent-foreground rounded-br-md"
                 : "bg-card border-border/70 rounded-bl-md border shadow-sm",
             )}
           >
-            <Markdown source={String(message.content ?? "")} />
+            <Markdown source={String(message.content ?? "")} components={components} />
           </div>
         )}
       </div>
@@ -240,9 +329,9 @@ function splitPartsByStepStart(parts: any[]) {
   return bubbles;
 }
 
-function MessagePart({ part }: { part: any }) {
+function MessagePart({ part, components }: { part: any; components?: Record<string, React.ComponentType<any>> }) {
   if (part.type === "text") {
-    return <Markdown source={part.text ?? ""} />;
+    return <Markdown source={part.text ?? ""} components={components} />;
   }
   if (part.type === "reasoning") {
     return (
@@ -270,7 +359,7 @@ function ToolPart({ part }: { part: any }) {
         <span>{toolStateText(part.state)}</span>
         <ChevronRight className="size-3 transition-transform group-data-[state=open]/collapsible:rotate-90" />
       </CollapsibleTrigger>
-      <CollapsibleContent className="animate-none! bg-muted/60 mt-2 rounded-lg px-3 py-2">
+      <CollapsibleContent className="bg-muted/60 mt-2 animate-none! rounded-lg px-3 py-2">
         <Markdown
           source={`\`\`\`json\n${JSON.stringify({ input: part.input, output: part.output, error: part.errorText }, null, 2)}\n\`\`\``}
         />
