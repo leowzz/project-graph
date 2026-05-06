@@ -68,7 +68,7 @@ export function SettingField({ settingKey, extra = <></> }: { settingKey: keyof 
             onValueChange={([v]) => setValue(v)}
             min={bag.minimum}
             max={bag.maximum}
-            step={bag.format === "int" ? 1 : 0.01}
+            step={bag.format === "safeint" ? 1 : 0.01}
             className="w-48"
           />
           <Input
@@ -88,7 +88,7 @@ export function SettingField({ settingKey, extra = <></> }: { settingKey: keyof 
             type="number"
             min={bag.minimum}
             max={bag.maximum}
-            step={bag.format === "int" ? 1 : 0.01}
+            step={bag.format === "safeint" ? 1 : 0.01}
             className="w-24"
           />
         </>

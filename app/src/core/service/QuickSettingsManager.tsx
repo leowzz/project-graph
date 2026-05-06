@@ -190,7 +190,7 @@ export namespace QuickSettingsManager {
     const bag = (inner as any)._zod?.bag ?? {};
     const min = bag.minimum ?? null;
     const max = bag.maximum ?? null;
-    const isInt = bag.format === "int";
+    const isInt = bag.format === "safeint";
     const step = isInt ? 1 : 0.01;
     const hasRange = min !== null && max !== null;
 
