@@ -1,13 +1,13 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { Project, ProjectState } from "./core/Project";
-import { Tab } from "./core/Tab";
 import { cn } from "@udecode/cn";
-import { Button } from "./components/ui/button";
 import { CircleAlert, CloudUpload, X } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/tooltip";
-import { SoundService } from "./core/service/feedbackService/SoundService";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Button } from "./components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/tooltip";
+import { Project, ProjectState } from "./core/Project";
+import { SoundService } from "./core/service/feedbackService/SoundService";
 import { Settings } from "./core/service/Settings";
+import { Tab } from "./core/Tab";
 import { replaceTextWhenProtect } from "./utils/font";
 
 // 将 ProjectTabs 移出 App 组件，作为独立组件
@@ -17,14 +17,12 @@ export const ProjectTabs = memo(function ProjectTabs({
   onTabClick,
   onTabClose,
   isClassroomMode,
-  ignoreMouseEvents,
 }: {
   tabs: Tab[];
   activeTab: Tab | undefined;
   onTabClick: (tab: Tab) => void;
   onTabClose: (tab: Tab) => void;
   isClassroomMode: boolean;
-  ignoreMouseEvents: boolean;
 }) {
   const tabsContainerRef = useRef<HTMLDivElement>(null);
   const scrollPositionRef = useRef(0);
@@ -82,7 +80,6 @@ export const ProjectTabs = memo(function ProjectTabs({
       className={cn(
         "scrollbar-hide z-10 flex h-4 overflow-x-auto whitespace-nowrap hover:opacity-100 sm:h-6 sm:gap-1",
         isClassroomMode && "opacity-0",
-        ignoreMouseEvents && "pointer-events-none",
       )}
       onScroll={handleScroll}
     >
@@ -144,10 +141,10 @@ export const ProjectTabs = memo(function ProjectTabs({
           >
             {tab instanceof Project && tab.isSaving ? (
               <span className="grid size-3.5 animate-spin grid-cols-2">
-                <span className="border-1 border-accent-foreground w-full animate-pulse rounded-full p-0.5"></span>
-                <span className="border-1 border-accent-foreground w-full rounded-full p-0.5"></span>
-                <span className="border-1 border-accent-foreground w-full rounded-full p-0.5"></span>
-                <span className="border-1 border-accent-foreground w-full animate-pulse rounded-full p-0.5"></span>
+                <span className="border-accent-foreground w-full animate-pulse rounded-full border-1 p-0.5"></span>
+                <span className="border-accent-foreground w-full rounded-full border-1 p-0.5"></span>
+                <span className="border-accent-foreground w-full rounded-full border-1 p-0.5"></span>
+                <span className="border-accent-foreground w-full animate-pulse rounded-full border-1 p-0.5"></span>
               </span>
             ) : tab instanceof Project && tab.projectState === ProjectState.Saved ? (
               <X className="scale-75 opacity-75" />
