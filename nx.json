@@ -24,6 +24,10 @@
     "type-check": {
       "inputs": ["{projectRoot}/src/**/*.{ts,tsx}"],
       "cache": true
+    },
+    "publish": {
+      "dependsOn": ["build"],
+      "cache": false
     }
   },
   "defaultBase": "next",

@@ -1,20 +1,25 @@
 {
   "name": "extprg-types",
   "description": "TypeScript type definitions for Project Graph extension API",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "license": "MIT",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
   "files": [
-    "src"
+    "index.d.ts"
   ],
-  "types": "src/index.d.ts",
+  "types": "index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.d.ts"
+      "types": "./index.d.ts"
     }
   },
   "scripts": {
-    "build": "tsx build.ts"
+    "build": "tsx build.ts",
+    "publish": "pnpm publish --no-git-checks"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

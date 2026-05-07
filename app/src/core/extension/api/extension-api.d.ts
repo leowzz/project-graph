@@ -3,7 +3,7 @@
 
 /**
  * Auto-generated. Do not edit manually.
- * 2026-05-07T13:10:17.948Z
+ * 2026-05-07T13:31:13.599Z
  */
 
 // ── 第三方类型导入 ──
@@ -34,12 +34,18 @@ import type {
   AlignVerticalSpaceBetween,
   Aperture,
   ArrowDown,
+  ArrowDownFromLine,
+  ArrowDownToLine,
   ArrowDownUp,
   ArrowLeft,
+  ArrowLeftFromLine,
   ArrowLeftRight,
+  ArrowLeftToLine,
   ArrowRight,
   ArrowRightFromLine,
+  ArrowRightToLine,
   ArrowUp,
+  ArrowUpFromLine,
   ArrowUpToLine,
   Box,
   Brush,

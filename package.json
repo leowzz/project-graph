@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "An open-source project that aims to provide a next-generation node diagram tool for visual thinking.",
   "type": "module",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
   "scripts": {
     "dev": "nx run-many -t dev tauri:dev",
     "build": "nx run-many -t build tauri:build",
@@ -14,7 +18,8 @@
     "format": "prettier --write .",
     "test": "vitest",
     "tauri": "pnpm --filter @graphif/project-graph tauri",
-    "prepublish": "pnpm run build:no-tauri"
+    "prepublish": "pnpm run build:no-tauri",
+    "publish": "nx run-many -t publish"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
