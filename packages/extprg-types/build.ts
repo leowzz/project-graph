@@ -393,12 +393,59 @@ function nodeText(node: ts.Node, text: string): string {
   return text.slice(node.pos, node.end).trim();
 }
 
+/** 收集所有已记录的 class 类型名称 */
+function getClassNameSet(): Set<string> {
+  const names = new Set<string>();
+  for (const [, info] of localTypes) {
+    if (info.kind === "class") names.add(info.name);
+  }
+  // 从 workspace 包中添加已知的 class 类型（第三方包中的类）
+  for (const name of WORKSPACE_CLASS_NAMES) {
+    names.add(name);
+  }
+  return names;
+}
+
+/** @graphif/shapes 和 @graphif/data-structures 中的 class 名称 */
+const WORKSPACE_CLASS_NAMES = [
+  // shapes
+  "Shape",
+  "Rectangle",
+  "Line",
+  "Circle",
+  "CubicCatmullRomSpline",
+  "CubicBezierCurve",
+  "SymmetryCurve",
+  // data-structures
+  "Vector",
+  "Color",
+  "Queue",
+  "Stack",
+  "MonoStack",
+  "LimitLengthQueue",
+  "ProgressNumber",
+  "LruCache",
+  "MaxSizeCache",
+];
+
+/**
+ * 如果类型名是 class，追加序列化形式 `| { _: "TypeName" | (string & {}) }`。
+ */
+function addSerializedForm(typeStr: string, classNames: Set<string>): string {
+  const trimmed = typeStr.trim();
+  if (classNames.has(trimmed)) {
+    return `${trimmed} | { _: "${trimmed}" | (string & {}) }`;
+  }
+  return trimmed;
+}
+
 function formatParams(params: ts.NodeArray<ts.ParameterDeclaration>, text: string): string {
+  const classNames = getClassNameSet();
   return params
     .map((p) => {
       const rest = p.dotDotDotToken ? "..." : "";
       const q = p.questionToken ? "?" : "";
-      const type = p.type ? `: ${nodeText(p.type, text)}` : "";
+      const type = p.type ? `: ${addSerializedForm(nodeText(p.type, text), classNames)}` : "";
       const init = p.initializer ? ` = ${nodeText(p.initializer, text)}` : "";
       return `${rest}${p.name.getText()}${q}${type}${init}`;
     })
@@ -417,31 +464,51 @@ function formatTypeParams(tps: ts.NodeArray<ts.TypeParameterDeclaration> | undef
     .join(", ")}>`;
 }
 
+/**
+ * 将类型字符串包裹为 Promise<type>。
+ * - 已经是 Promise<T> 的保持不变
+ * - 数组类型 T[] 变为 Promise<T>[]
+ * - void/any/never 保持不变
+ * - 其他包裹为 Promise<type>
+ */
+function promisifyType(t: string): string {
+  const trimmed = t.trim();
+  if (trimmed.startsWith("Promise<") || trimmed === "void" || trimmed === "any" || trimmed === "never") return trimmed;
+  // 类型谓词（obj is Type）不能包裹 Promise
+  if (/\w+\s+is\s+\w/.test(trimmed)) return trimmed;
+  // 数组类型：T[] → Promise<T>[]
+  if (trimmed.endsWith("[]")) {
+    const inner = trimmed.slice(0, -2).trim();
+    return `Promise<${inner}>[]`;
+  }
+  return `Promise<${trimmed}>`;
+}
+
 function genInterface(node: ts.InterfaceDeclaration, text: string): string {
   const tp = formatTypeParams(node.typeParameters, text);
   const ext = node.heritageClauses ? " " + node.heritageClauses.map((h) => nodeText(h, text)).join(" ") : "";
   const members = node.members.map((m) => {
     if (ts.isMethodSignature(m)) {
       const p = formatParams(m.parameters, text);
-      const r = m.type ? `: ${nodeText(m.type, text)}` : "";
+      const r = m.type ? `: ${promisifyType(nodeText(m.type, text))}` : ": Promise<void>";
       const t = formatTypeParams(m.typeParameters, text);
       return `  ${m.name.getText()}${t}(${p})${r};`;
     }
     if (ts.isPropertySignature(m)) {
       const r = hasMod(m, ts.SyntaxKind.ReadonlyKeyword) ? "readonly " : "";
       const q = m.questionToken ? "?" : "";
-      const t = m.type ? `: ${nodeText(m.type, text)}` : "";
+      const t = m.type ? `: ${promisifyType(nodeText(m.type, text))}` : "";
       return `  ${r}${m.name.getText()}${q}${t};`;
     }
     if (ts.isIndexSignatureDeclaration(m)) return `  ${nodeText(m, text)};`;
     if (ts.isCallSignatureDeclaration(m)) {
       const p = formatParams(m.parameters, text);
-      const r = m.type ? `: ${nodeText(m.type, text)}` : "";
+      const r = m.type ? `: ${promisifyType(nodeText(m.type, text))}` : ": Promise<void>";
       return `  (${p})${r};`;
     }
     if (ts.isConstructSignatureDeclaration(m)) {
       const p = formatParams(m.parameters, text);
-      const r = m.type ? `: ${nodeText(m.type, text)}` : "";
+      const r = m.type ? `: ${promisifyType(nodeText(m.type, text))}` : ": Promise<void>";
       return `  new (${p})${r};`;
     }
     return `  ${nodeText(m, text)};`;
@@ -488,12 +555,12 @@ function mergeAugmentationMembers(sf: ts.SourceFile, text: string, className: st
 
         if (ts.isMethodSignature(member)) {
           const t = formatTypeParams(member.typeParameters, text);
-          const r = member.type ? `: ${nodeText(member.type, text)}` : "";
+          const r = member.type ? `: ${promisifyType(nodeText(member.type, text))}` : ": Promise<void>";
           existingMembers.push(`  ${member.name.getText()}${t}(${formatParams(member.parameters, text)})${r};`);
         } else if (ts.isPropertySignature(member)) {
           const ro = hasMod(member, ts.SyntaxKind.ReadonlyKeyword) ? "readonly " : "";
           const q = member.questionToken ? "?" : "";
-          const t = member.type ? `: ${nodeText(member.type, text)}` : "";
+          const t = member.type ? `: ${promisifyType(nodeText(member.type, text))}` : "";
           existingMembers.push(`  ${ro}${member.name.getText()}${q}${t};`);
         }
       }
@@ -513,15 +580,15 @@ function genClass(node: ts.ClassDeclaration, text: string): string {
       members.push(`  constructor(${formatParams(m.parameters, text)});`);
     } else if (ts.isMethodDeclaration(m)) {
       const t = formatTypeParams(m.typeParameters, text);
-      const r = m.type ? `: ${nodeText(m.type, text)}` : "";
+      const r = m.type ? `: ${promisifyType(nodeText(m.type, text))}` : ": Promise<void>";
       members.push(`  ${m.name.getText()}${t}(${formatParams(m.parameters, text)})${r};`);
     } else if (ts.isPropertyDeclaration(m)) {
       const ro = hasMod(m, ts.SyntaxKind.ReadonlyKeyword) ? "readonly " : "";
       const q = m.questionToken ? "?" : "";
-      const t = m.type ? `: ${nodeText(m.type, text)}` : "";
+      const t = m.type ? `: ${promisifyType(nodeText(m.type, text))}` : "";
       members.push(`  ${ro}${m.name.getText()}${q}${t};`);
     } else if (ts.isGetAccessorDeclaration(m)) {
-      members.push(`  get ${m.name.getText()}(): ${m.type ? nodeText(m.type, text) : "any"};`);
+      members.push(`  get ${m.name.getText()}(): ${m.type ? promisifyType(nodeText(m.type, text)) : "Promise<any>"};`);
     } else if (ts.isSetAccessorDeclaration(m)) {
       const p = m.parameters[0];
       if (p)
@@ -549,13 +616,13 @@ function genNamespace(node: ts.ModuleDeclaration, text: string): string {
     else if (ts.isClassDeclaration(s)) items.push(genClass(s, text));
     else if (ts.isFunctionDeclaration(s) && s.name) {
       const t = formatTypeParams(s.typeParameters, text);
-      const r = s.type ? `: ${nodeText(s.type, text)}` : "";
+      const r = s.type ? `: ${promisifyType(nodeText(s.type, text))}` : ": Promise<void>";
       items.push(`  function ${s.name.text}${t}(${formatParams(s.parameters, text)})${r};`);
     } else if (ts.isModuleDeclaration(s)) items.push(genNamespace(s, text));
     else if (ts.isVariableStatement(s)) {
       for (const d of s.declarationList.declarations) {
         if (ts.isIdentifier(d.name)) {
-          items.push(`  const ${d.name.text}${d.type ? `: ${nodeText(d.type, text)}` : ""};`);
+          items.push(`  const ${d.name.text}${d.type ? `: ${promisifyType(nodeText(d.type, text))}` : ""};`);
         }
       }
     }
@@ -595,8 +662,22 @@ function genFunctionSignature(fd: ts.FunctionDeclaration, text: string, imports:
   const name = fd.name!.text;
   const tp = fd.typeParameters ? formatTypeParams(fd.typeParameters, text) : "";
   const params = formatParams(fd.parameters, text);
+
   const ret = extractReturnType(fd, text, imports);
   return `export declare function ${name}${tp}(${params}): ${ret};`;
+}
+
+/**
+ * 将方法返回类型进一步 promisify：Promise<Tab[]> → Promise<Promise<Tab>[]>
+ * 即保留外层 Promise，内部类型也执行 promisifyType。
+ */
+function promisifyReturnType(typeStr: string): string {
+  const innerMatch = typeStr.trim().match(/^Promise<(.+)>$/);
+  if (innerMatch) {
+    const inner = innerMatch[1].trim();
+    return `Promise<${promisifyType(inner)}>`;
+  }
+  return promisifyType(typeStr);
 }
 
 function extractReturnType(fd: ts.FunctionDeclaration, text: string, imports: ImportEntry[]): string {
@@ -611,7 +692,7 @@ function extractReturnType(fd: ts.FunctionDeclaration, text: string, imports: Im
     // 方法声明 → 方法签名
     if (ts.isMethodDeclaration(p)) {
       const t = formatTypeParams(p.typeParameters, text);
-      const r = p.type ? `: ${nodeText(p.type, text)}` : "";
+      const r = p.type ? `: ${promisifyReturnType(nodeText(p.type, text))}` : ": Promise<void>";
       props.push(`    ${p.name.getText()}${t}(${formatParams(p.parameters, text)})${r};`);
       continue;
     }
@@ -646,10 +727,11 @@ function extractReturnType(fd: ts.FunctionDeclaration, text: string, imports: Im
       props.push(`    ${name}: ${nodeText(init, text)};`);
       continue;
     }
-    // ShorthandPropertyAssignment (如 fetch, toast)
+    // ShorthandPropertyAssignment (如 fetch)
+    // 值引用需要用 typeof 包裹（值为函数）
     if (ts.isShorthandPropertyAssignment(p)) {
       const ref = lookupTypeForValue(p.name.text, imports);
-      props.push(`    ${p.name.text}: ${ref};`);
+      props.push(`    ${p.name.text}: typeof ${ref};`);
       continue;
     }
     // SpreadAssignment
@@ -678,6 +760,25 @@ function lookupTypeForValue(name: string, imports: ImportEntry[]): string {
   }
   return name;
 }
+
+/**
+ * 在类型字符串中，将 proxied 类型名包裹为 `Remote<name>`。
+ * 按名称长度从长到短排序替换，避免部分匹配（如 Tab 不应匹配 TabExporter）。
+ */
+// function wrapReturnTypeWithRemote(typeStr: string, proxied: Set<string>): string {
+//   const sorted = [...proxied].sort((a, b) => b.length - a.length);
+//   let result = typeStr;
+//   for (const name of sorted) {
+//     result = result.replace(new RegExp(`\\b${escapeRegExp(name)}\\b`, "g"), `Remote<${name}>`);
+//   }
+//   return result;
+// }
+
+// function escapeRegExp(s: string): string {
+//   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// }
+
+// (kept for reference, no longer used)
 
 // ═══════════════════════════════════════════════════════════════════════
 //  递归收集类型
@@ -825,11 +926,11 @@ function genDecl(node: ts.Declaration, text: string): string | null {
   if (ts.isModuleDeclaration(node)) return genNamespace(node, text);
   if (ts.isFunctionDeclaration(node)) {
     const t = formatTypeParams(node.typeParameters, text);
-    const r = node.type ? `: ${nodeText(node.type, text)}` : "";
+    const r = node.type ? `: ${promisifyType(nodeText(node.type, text))}` : ": Promise<void>";
     return `declare function ${node.name?.text}${t}(${formatParams(node.parameters, text)})${r};`;
   }
   if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
-    const t = node.type ? `: ${nodeText(node.type, text)}` : "";
+    const t = node.type ? `: ${promisifyType(nodeText(node.type, text))}` : "";
     return `declare const ${node.name.text}${t};`;
   }
   return null;
@@ -979,15 +1080,19 @@ function generateOutput(funcSignature: string): string {
     }
   }
 
-  // 3. Function signature (replace inline import types)
+  // 3. Function signature
   lines.push("// ── 扩展宿主 API ──");
   lines.push("");
   const cleanedSig = replaceInlineImportTypes(funcSignature, localNames);
   lines.push(cleanedSig);
   lines.push("");
 
-  // 4. Global type augmentation
+  // 5. Global type augmentation
   lines.push("declare global {");
+  lines.push("  const prg: ReturnType<typeof extensionHostApiFactory>;");
+  lines.push("  interface Window {");
+  lines.push("    prg: ReturnType<typeof extensionHostApiFactory>;");
+  lines.push("  }");
   lines.push("  interface DedicatedWorkerGlobalScope {");
   lines.push("    prg: ReturnType<typeof extensionHostApiFactory>;");
   lines.push("  }");
@@ -1018,10 +1123,17 @@ function main() {
   }
   console.log("✅ 已找到 extensionHostApiFactory 函数");
 
-  // 收集初始类型引用
+  // 收集初始类型引用（包括函数参数和返回表达式）
   console.log("");
   console.log("🔍 收集返回类型中的类型引用...");
   const refs = new Map<string, { specifier: string; originalName: string; isValue?: boolean }>();
+
+  // 从函数参数中收集类型（如 Extension）
+  for (const param of fd.parameters) {
+    if (param.type) collectTypeRefs(param.type, fi.imports, refs);
+  }
+
+  // 从返回表达式中收集类型
   const rs = findReturnStatement(fd);
   if (rs?.expression) {
     collectTypeRefs(rs.expression, fi.imports, refs);
