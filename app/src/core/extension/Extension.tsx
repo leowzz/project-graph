@@ -62,6 +62,7 @@ export class Extension extends Tab {
       const entries = await reader.getEntries();
 
       for (const entry of entries) {
+        if (entry.directory) continue; // 跳过文件夹
         if (entry.filename === "metadata.msgpack") {
           const metadataRawData = await entry.getData!(new Uint8ArrayWriter());
           this.metadata = decoder.decode(metadataRawData) as PrgMetadata;
@@ -79,6 +80,7 @@ export class Extension extends Tab {
       const iconEntry = entries.find((e) => iconNames.includes(e.filename));
       if (iconEntry) {
         try {
+          if (iconEntry.directory) throw new Error("图标不能是文件夹");
           const iconData = await iconEntry.getData!(new Uint8ArrayWriter());
           this.iconRawData = iconData;
           this.iconFileName = iconEntry.filename;
@@ -107,7 +109,7 @@ export class Extension extends Tab {
         const [codeContent, metadataContent, readmeContent] = await Promise.all([
           fs.read(codeUri),
           fs.read(metadataUri),
-          fs.read(readmeUri),
+          (await fs.exists(readmeUri)) ? fs.read(readmeUri) : "",
         ]);
 
         this.code = new TextDecoder().decode(codeContent);
