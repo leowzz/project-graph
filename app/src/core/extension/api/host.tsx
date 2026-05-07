@@ -29,7 +29,7 @@ export function extensionHostApiFactory(extension: Extension) {
 
   return {
     //region toast
-    async toast(message: string) {
+    async toast(message: string): Promise<void> {
       toast(
         <div className="flex flex-col gap-0.5">
           <p>{message}</p>
@@ -37,7 +37,7 @@ export function extensionHostApiFactory(extension: Extension) {
         </div>,
       );
     },
-    async toast_success(message: string) {
+    async toast_success(message: string): Promise<void> {
       toast.success(
         <div className="flex flex-col gap-0.5">
           <p>{message}</p>
@@ -45,7 +45,7 @@ export function extensionHostApiFactory(extension: Extension) {
         </div>,
       );
     },
-    async toast_error(message: string) {
+    async toast_error(message: string): Promise<void> {
       toast.error(
         <div className="flex flex-col gap-0.5">
           <p>{message}</p>
@@ -53,7 +53,7 @@ export function extensionHostApiFactory(extension: Extension) {
         </div>,
       );
     },
-    async toast_warning(message: string) {
+    async toast_warning(message: string): Promise<void> {
       toast.warning(
         <div className="flex flex-col gap-0.5">
           <p>{message}</p>
@@ -93,7 +93,7 @@ export function extensionHostApiFactory(extension: Extension) {
       return JSON.parse(text);
     },
 
-    async fetch_binary(url: string) {
+    async fetch_binary(url: string): Promise<{ buffer: Uint8Array; mimeType: string }> {
       const response = await fetch(url);
       const arrayBuffer = await response.arrayBuffer();
       const buffer = new Uint8Array(arrayBuffer);
@@ -102,7 +102,11 @@ export function extensionHostApiFactory(extension: Extension) {
     },
 
     //region 系统命令
-    async shell_execute(program: string, args?: string[], stdin?: string) {
+    async shell_execute(
+      program: string,
+      args?: string[],
+      stdin?: string,
+    ): Promise<{ code: number | null; stdout: string; stderr: string }> {
       return invoke<{ code: number | null; stdout: string; stderr: string }>("run_command", {
         program,
         cmdArgs: args ?? [],
@@ -111,10 +115,10 @@ export function extensionHostApiFactory(extension: Extension) {
     },
 
     //region 设置
-    async settings_getOwn(key: string) {
+    async settings_getOwn(key: string): Promise<any> {
       return Settings.extensionSettings[extensionId]?.[key];
     },
-    async settings_setOwn(key: string, value: unknown) {
+    async settings_setOwn(key: string, value: unknown): Promise<void> {
       const current = Settings.extensionSettings[extensionId] ?? {};
       Settings.extensionSettings = {
         ...Settings.extensionSettings,
@@ -124,13 +128,13 @@ export function extensionHostApiFactory(extension: Extension) {
         },
       };
     },
-    async settings_getGlobal(key: string) {
+    async settings_getGlobal(key: string): Promise<any> {
       if (key === "aiApiKey") {
         throw new Error("出于安全考虑，扩展无法访问 aiApiKey 设置项");
       }
       return (Settings as any)[key];
     },
-    async settings_setGlobal(key: string, value: unknown) {
+    async settings_setGlobal(key: string, value: unknown): Promise<any> {
       if (key === "aiApiBaseUrl") {
         throw new Error("出于安全考虑，扩展无法修改 aiApiBaseUrl 设置项");
       }
@@ -145,7 +149,7 @@ export function extensionHostApiFactory(extension: Extension) {
       onPress: () => void,
       onRelease?: () => void,
       isContinuous?: boolean,
-    ) {
+    ): Promise<void> {
       return ExtensionKeyBindManager.register(extensionId, {
         id,
         icon,
@@ -155,25 +159,25 @@ export function extensionHostApiFactory(extension: Extension) {
         isContinuous,
       });
     },
-    async keybinds_unregisterAll() {
+    async keybinds_unregisterAll(): Promise<void> {
       return ExtensionKeyBindManager.unregisterAll(extensionId);
     },
 
     //region Tab,Project
-    async tabs_getAll() {
+    async tabs_getAll(): Promise<import("../../Tab").Tab[]> {
       return store.get(tabsAtom).map((it) => proxy(it));
     },
-    async tabs_getAllProjects() {
+    async tabs_getAllProjects(): Promise<Project[]> {
       return store
         .get(tabsAtom)
         .filter((it) => it instanceof Project)
         .map((it) => proxy(it));
     },
-    async tabs_getCurrent() {
+    async tabs_getCurrent(): Promise<import("../../Tab").Tab | null> {
       const activeTab = store.get(activeTabAtom);
       return activeTab ? proxy(activeTab) : null;
     },
-    async tabs_getCurrentProject() {
+    async tabs_getCurrentProject(): Promise<Project | null> {
       const activeTab = store.get(activeTabAtom);
       if (activeTab instanceof Project) {
         return proxy(activeTab);
@@ -187,7 +191,7 @@ export function extensionHostApiFactory(extension: Extension) {
       initialData: any,
       collisionBox: CollisionBox,
       renderFn: (data: any) => Promise<ImageBitmap>,
-    ) {
+    ): Promise<void> {
       const config: ExtensionEntityConfig = { initialData, collisionBox };
       extensionObjectRegistry.registerType(extensionId, typeName, config, renderFn);
       patchLoadedEntities(typeName, collisionBox);
@@ -196,11 +200,11 @@ export function extensionHostApiFactory(extension: Extension) {
     async entity_onClick(
       typeName: string,
       handler: (payload: import("../ExtensionObjectRegistry").ClickEventPayload) => void,
-    ) {
+    ): Promise<void> {
       extensionObjectRegistry.registerClickHandler(extensionId, typeName, handler);
     },
 
-    async entity_create(typeName: string, data: any, location: { x: number; y: number }) {
+    async entity_create(typeName: string, data: any, location: { x: number; y: number }): Promise<ExtensionEntity> {
       const activeTab = store.get(activeTabAtom);
       if (!(activeTab instanceof Project)) {
         throw new Error("当前标签页不是一个项目，无法创建实体");

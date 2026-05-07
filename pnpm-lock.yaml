@@ -80,6 +80,9 @@ importers:
       turbo:
         specifier: ^2.9.8
         version: 2.9.8
+      typescript:
+        specifier: "catalog:"
+        version: 5.9.2(patch_hash=3e406bcbc915a43404e343869d7ea80317c7237f58067404369e459a4634c1b6)
       typescript-eslint:
         specifier: ^8.59.1
         version: 8.59.1(eslint@10.3.0(jiti@2.6.1))(typescript@5.9.2(patch_hash=3e406bcbc915a43404e343869d7ea80317c7237f58067404369e459a4634c1b6))
@@ -601,6 +604,18 @@ importers:
       tsdown:
         specifier: "catalog:"
         version: 0.21.10(synckit@0.11.12)(typescript@5.9.2(patch_hash=3e406bcbc915a43404e343869d7ea80317c7237f58067404369e459a4634c1b6))
+      typescript:
+        specifier: "catalog:"
+        version: 5.9.2(patch_hash=3e406bcbc915a43404e343869d7ea80317c7237f58067404369e459a4634c1b6)
+
+  packages/extprg-types:
+    devDependencies:
+      "@types/node":
+        specifier: ^25.6.0
+        version: 25.6.0
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
       typescript:
         specifier: "catalog:"
         version: 5.9.2(patch_hash=3e406bcbc915a43404e343869d7ea80317c7237f58067404369e459a4634c1b6)
