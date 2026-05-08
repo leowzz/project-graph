@@ -216,7 +216,7 @@ settings:
       background: 背景
       node: 節點樣式
       edge: 連線樣式
-      section: “框”的樣式
+      section: 分组框的樣式
       entityDetails: 實體詳细讯息
       debug: 偵錯
       miniWindow: 迷你視窗
@@ -1332,13 +1332,27 @@ keyBinds:
       使用此功能前先確保已選取一個節點、且該節點存在父級節點'
   generateNodeGraph:
     title: 生長自由節點
-    description: '按下後，出現一個虛擬生長位置
-
-      此時，按下“I J K L”鍵自由調整生長位置
-
-      再次按下該鍵，退出自由生長模式
-
-      使用此功能前先確保已選中一個節點'
+    description: |
+      按住此鍵，出現一個虛擬生長位置
+      此時，按住”I J K L”鍵自由調整生長位置
+      鬆開此鍵，完成節點建立
+      使用此功能前先確保已選中一個節點
+  generateNodeGraphMoveUp:
+    title: 自由生長節點——向上移動
+    description: |
+      在自由生長節點模式啟動時（按住反引號鍵），按住此鍵將虛擬目標位置向上移動
+  generateNodeGraphMoveDown:
+    title: 自由生長節點——向下移動
+    description: |
+      在自由生長節點模式啟動時（按住反引號鍵），按住此鍵將虛擬目標位置向下移動
+  generateNodeGraphMoveLeft:
+    title: 自由生長節點——向左移動
+    description: |
+      在自由生長節點模式啟動時（按住反引號鍵），按住此鍵將虛擬目標位置向左移動
+  generateNodeGraphMoveRight:
+    title: 自由生長節點——向右移動
+    description: |
+      在自由生長節點模式啟動時（按住反引號鍵），按住此鍵將虛擬目標位置向右移動
   createConnectPointWhenDragConnecting:
     title: 拖曳連線時，按下此鍵，建立質點中轉
     description: 當拖曳連線時，按下此鍵，建立質點中轉

@@ -444,7 +444,7 @@ export class Renderer {
               );
             }
           }
-          let hintText = "再按一次 “生长自由节点键（默认是反引号键）” 完成并退出新节点创建,IKJL键移动生长位置";
+          let hintText = "松开反引号键完成创建，IJKL 键移动生长位置";
           if (isHaveEntity) {
             hintText = "连接！";
           }

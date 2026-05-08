@@ -1377,10 +1377,26 @@ keyBinds:
   generateNodeGraph:
     title: Tumbuhkan Node Bebas
     description: |
-      Setelah ditekan, muncul posisi tumbuh virtual
-      Saat ini, tekan tombol "I J K L" untuk menyesuaikan posisi tumbuh secara bebas
-      Tekan tombol ini lagi, keluar dari mode tumbuh bebas
+      Tahan tombol ini, posisi tumbuh virtual muncul
+      Saat menahan, tekan tombol "I J K L" untuk menyesuaikan posisi tumbuh secara bebas
+      Lepaskan tombol ini untuk menyelesaikan pembuatan node
       Sebelum menggunakan fungsi ini pastikan telah memilih satu node
+  generateNodeGraphMoveUp:
+    title: Tumbuh Node Bebas — Gerak ke Atas
+    description: |
+      Saat mode tumbuh bebas aktif (menahan tombol backtick), tahan tombol ini untuk menggerakkan posisi target virtual ke atas
+  generateNodeGraphMoveDown:
+    title: Tumbuh Node Bebas — Gerak ke Bawah
+    description: |
+      Saat mode tumbuh bebas aktif (menahan tombol backtick), tahan tombol ini untuk menggerakkan posisi target virtual ke bawah
+  generateNodeGraphMoveLeft:
+    title: Tumbuh Node Bebas — Gerak ke Kiri
+    description: |
+      Saat mode tumbuh bebas aktif (menahan tombol backtick), tahan tombol ini untuk menggerakkan posisi target virtual ke kiri
+  generateNodeGraphMoveRight:
+    title: Tumbuh Node Bebas — Gerak ke Kanan
+    description: |
+      Saat mode tumbuh bebas aktif (menahan tombol backtick), tahan tombol ini untuk menggerakkan posisi target virtual ke kanan
   createConnectPointWhenDragConnecting:
     title: Saat Menyeret Garis, Tekan Tombol Ini untuk Buat Titik Massa Transit
     description: |

@@ -169,7 +169,7 @@ settings:
       background: 背景
       node: 节点样式
       edge: 连线样式
-      section: “框”的样式
+      section: 分组框的样式
       entityDetails: 实体详细信息
       debug: 调试
       miniWindow: 迷你窗口
@@ -1373,10 +1373,26 @@ keyBinds:
   generateNodeGraph:
     title: 生长自由节点
     description: |
-      按下后，出现一个虚拟生长位置
-      此时，按下“I J K L”键自由调整生长位置
-      再次按下该键，退出自由生长模式
+      按住此键，出现一个虚拟生长位置
+      此时，按住”I J K L”键自由调整生长位置
+      松开此键，完成节点创建
       使用此功能前先确保已选中一个节点
+  generateNodeGraphMoveUp:
+    title: 自由生长节点——向上移动
+    description: |
+      在自由生长节点模式激活时（按住反引号键），按住此键将虚拟目标位置向上移动
+  generateNodeGraphMoveDown:
+    title: 自由生长节点——向下移动
+    description: |
+      在自由生长节点模式激活时（按住反引号键），按住此键将虚拟目标位置向下移动
+  generateNodeGraphMoveLeft:
+    title: 自由生长节点——向左移动
+    description: |
+      在自由生长节点模式激活时（按住反引号键），按住此键将虚拟目标位置向左移动
+  generateNodeGraphMoveRight:
+    title: 自由生长节点——向右移动
+    description: |
+      在自由生长节点模式激活时（按住反引号键），按住此键将虚拟目标位置向右移动
   createConnectPointWhenDragConnecting:
     title: 拖拽连线时，按下此键，创建质点中转
     description: |

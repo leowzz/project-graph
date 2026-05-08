@@ -1536,10 +1536,27 @@ keyBinds:
     title: Decrease Pen Stroke Size
   generateNodeGraph:
     title: Grow Node in Free Mode
-    description: "After pressing, a virtual growth position appears \nPress the \"\
-      I J K L\" key while holding down the key to freely adjust the growth position\
-      \ \nAfter release, growth is complete \nBefore using this feature, ensure that
-      a node has been selected\n"
+    description: |
+      Hold down this key, a virtual growth position appears
+      While holding, press "I J K L" keys to freely adjust the growth position
+      Release this key to complete node creation
+      Before using this feature, ensure that a node has been selected
+  generateNodeGraphMoveUp:
+    title: Free-Grow Node — Move Up
+    description: |
+      While in free-grow mode (holding the backtick key), hold this key to move the virtual target position upward
+  generateNodeGraphMoveDown:
+    title: Free-Grow Node — Move Down
+    description: |
+      While in free-grow mode (holding the backtick key), hold this key to move the virtual target position downward
+  generateNodeGraphMoveLeft:
+    title: Free-Grow Node — Move Left
+    description: |
+      While in free-grow mode (holding the backtick key), hold this key to move the virtual target position to the left
+  generateNodeGraphMoveRight:
+    title: Free-Grow Node — Move Right
+    description: |
+      While in free-grow mode (holding the backtick key), hold this key to move the virtual target position to the right
   createConnectPointWhenDragConnecting:
     title: Create Connect Point When Drag Connecting
     description: "When dragging a connection, a connect point will be created at the

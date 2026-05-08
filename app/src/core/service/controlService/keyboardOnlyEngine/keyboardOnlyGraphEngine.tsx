@@ -2,6 +2,7 @@ import { Project, service } from "@/core/Project";
 import { KeyboardOnlyDirectionController } from "@/core/service/controlService/keyboardOnlyEngine/keyboardOnlyDirectionController";
 import { NewTargetLocationSelector } from "@/core/service/controlService/keyboardOnlyEngine/newTargetLocationSelector";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
+import { Direction } from "@/types/directions";
 import { Vector } from "@graphif/data-structures";
 import { toast } from "sonner";
 
@@ -121,8 +122,9 @@ export class KeyboardOnlyGraphEngine {
     const creatingFromUUID = this._creatingFromUUID;
     this._isCreating = false;
     this._creatingFromUUID = null;
-    if (this.getPressTabTimeInterval() < 100) {
+    if (this.getPressTabTimeInterval() < 200) {
       toast.error("节点生长快捷键松开过快");
+      this.targetLocationController.clearSpeedAndAcc();
       return;
     }
 
@@ -191,6 +193,21 @@ export class KeyboardOnlyGraphEngine {
     this._isCreating = false;
     this._creatingFromUUID = null;
     this.lastPressTabTime = 0;
+    this.targetLocationController.clearSpeedAndAcc();
+  }
+
+  /**
+   * 开始向指定方向移动虚拟目标（供持续型快捷键调用）
+   */
+  startMovingDirection(dir: Direction): void {
+    this.targetLocationController.keyPress(dir);
+  }
+
+  /**
+   * 停止向指定方向移动虚拟目标（供持续型快捷键调用）
+   */
+  stopMovingDirection(dir: Direction): void {
+    this.targetLocationController.keyRelease(dir);
   }
 
   /**

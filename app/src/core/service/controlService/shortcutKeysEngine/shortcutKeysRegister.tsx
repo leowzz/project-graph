@@ -215,6 +215,9 @@ const whenKeyboardOnlyOpenWithSelectedSections: KeyBindWhen = (project) =>
   project.keyboardOnlyEngine.isOpenning() &&
   project.stageManager.getSelectedEntities().some((entity) => entity instanceof Section);
 
+const whenGraphEngineCreating: KeyBindWhen = (project) =>
+  !!project && project.keyboardOnlyEngine.isOpenning() && project.keyboardOnlyGraphEngine.isCreating();
+
 export const allKeyBinds: KeyBindItem[] = [
   {
     id: "test",
@@ -1410,17 +1413,54 @@ export const allKeyBinds: KeyBindItem[] = [
     id: "generateNodeGraph",
     defaultKey: "`",
     icon: Network,
-    when: whenKeyboardOnlyOpen,
+    when: whenKeyboardOnlyOpenWithSelectedConnectableEntities,
+    isContinuous: true,
     onPress: (project) => {
       if (!project!.keyboardOnlyEngine.isOpenning()) return;
-      if (project!.keyboardOnlyGraphEngine.isCreating()) {
-        project!.keyboardOnlyGraphEngine.createFinished();
-      } else {
-        if (project!.keyboardOnlyGraphEngine.isEnableVirtualCreate()) {
-          project!.keyboardOnlyGraphEngine.createStart();
-        }
+      if (project!.keyboardOnlyGraphEngine.isEnableVirtualCreate()) {
+        project!.keyboardOnlyGraphEngine.createStart();
       }
     },
+    onRelease: (project) => {
+      if (!project!.keyboardOnlyEngine.isOpenning()) return;
+      project!.keyboardOnlyGraphEngine.createFinished();
+    },
+  },
+  {
+    id: "generateNodeGraphMoveUp",
+    defaultKey: "i",
+    icon: ArrowUp,
+    when: whenGraphEngineCreating,
+    isContinuous: true,
+    onPress: (project) => project!.keyboardOnlyGraphEngine.startMovingDirection(Direction.Up),
+    onRelease: (project) => project!.keyboardOnlyGraphEngine.stopMovingDirection(Direction.Up),
+  },
+  {
+    id: "generateNodeGraphMoveDown",
+    defaultKey: "k",
+    icon: ArrowDown,
+    when: whenGraphEngineCreating,
+    isContinuous: true,
+    onPress: (project) => project!.keyboardOnlyGraphEngine.startMovingDirection(Direction.Down),
+    onRelease: (project) => project!.keyboardOnlyGraphEngine.stopMovingDirection(Direction.Down),
+  },
+  {
+    id: "generateNodeGraphMoveLeft",
+    defaultKey: "j",
+    icon: ArrowLeft,
+    when: whenGraphEngineCreating,
+    isContinuous: true,
+    onPress: (project) => project!.keyboardOnlyGraphEngine.startMovingDirection(Direction.Left),
+    onRelease: (project) => project!.keyboardOnlyGraphEngine.stopMovingDirection(Direction.Left),
+  },
+  {
+    id: "generateNodeGraphMoveRight",
+    defaultKey: "l",
+    icon: ArrowRight,
+    when: whenGraphEngineCreating,
+    isContinuous: true,
+    onPress: (project) => project!.keyboardOnlyGraphEngine.startMovingDirection(Direction.Right),
+    onRelease: (project) => project!.keyboardOnlyGraphEngine.stopMovingDirection(Direction.Right),
   },
 
   /*------- 手刹/刹车 -------*/
