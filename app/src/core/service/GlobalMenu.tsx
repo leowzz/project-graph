@@ -1047,6 +1047,19 @@ export function GlobalMenu() {
               </Item>
               <Item
                 onClick={() => {
+                  Dialog.input("设置Tab键生长节点时的初始名称", "填入参数写法详见设置页面", {
+                    defaultValue: Settings.autoNamerTreeNodeTemplate,
+                  }).then((result) => {
+                    if (!result) return;
+                    Settings.autoNamerTreeNodeTemplate = result;
+                  });
+                }}
+              >
+                <span>Tab键生长节点的初始名称：</span>
+                <span>{Settings.autoNamerTreeNodeTemplate}</span>
+              </Item>
+              <Item
+                onClick={() => {
                   Dialog.confirm("确认改变？", Settings.autoFillNodeColorEnable ? "即将关闭" : "即将开启").then(() => {
                     Settings.autoFillNodeColorEnable = !Settings.autoFillNodeColorEnable;
                   });

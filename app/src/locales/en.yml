@@ -337,6 +337,15 @@ settings:
       Input `{{i}}` to automatically replace with a number (synchronized with the title).
       Input `{{date}}` to automatically replace with the current date.
       Input `{{time}}` to automatically replace with the current time.
+  autoNamerTreeNodeTemplate:
+    title: Initial Name Template for Tab-Key Tree Growth
+    description: |
+      The initial name for new nodes created by pressing Tab in keyboard mode.
+      Input `{{i}}` to automatically replace with a number to avoid duplicate names.
+      For example, `Node_{{i}}` will be replaced with `Node_0`, `Node_1`, `Node_2`...
+      Input `{{date}}` to automatically replace with the current date.
+      Input `{{time}}` to automatically replace with the current time.
+      These can be combined, such as `Node_{{i}}-{{date}}`.
   autoSaveWhenClose:
     title: Auto-Save When Closing
     description: |
@@ -1271,11 +1280,6 @@ keyBinds:
   setSelectedEdgesToSolid:
     title: Set Selected Edges to Solid
     description: Set the line type of selected edges to solid
-  reverseSelectedNodeEdge:
-    title: Reverse All Connections of Selected Node
-    description: |
-      When pressed, all connections of each node in the selected group will be reversed.
-      This allows for faster one-to-many connections.
   packEntityToSection:
     title: Pack Selected Entities into Section Box
     description: |

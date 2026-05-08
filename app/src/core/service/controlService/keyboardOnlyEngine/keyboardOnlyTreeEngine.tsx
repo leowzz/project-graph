@@ -202,7 +202,7 @@ export class KeyboardOnlyTreeEngine {
    * 树形深度生长节点
    * @returns
    */
-  onDeepGenerateNode(defaultText = "新节点", selectAll = true) {
+  onDeepGenerateNode(defaultText = "", selectAll = true) {
     if (!this.project.keyboardOnlyEngine.isOpenning()) {
       return;
     }
@@ -324,9 +324,18 @@ export class KeyboardOnlyTreeEngine {
     // 计算新节点的字体大小
     const newFontScaleLevel = this.calculateNewNodeFontScaleLevel(rootNode, direction);
 
+    // 解析树形生长节点名称模板（仅当没有外部传入文字时使用设置中的模板）
+    const resolvedText =
+      defaultText !== ""
+        ? defaultText
+        : this.project.stageUtils.replaceAutoNameTemplate(
+            Settings.autoNamerTreeNodeTemplate,
+            this.project.stageManager.getTextNodes()[0] ?? rootNode,
+          );
+
     // 创建位置寻找完毕
     const newNode = new TextNode(this.project, {
-      text: defaultText,
+      text: resolvedText,
       collisionBox: new CollisionBox([
         new Rectangle(
           createLocation,
@@ -453,7 +462,10 @@ export class KeyboardOnlyTreeEngine {
     // 获取预方向
     const preDirection = this.getNodePreDirection(parent);
     // 自动命名新节点（如果当前选中的同级节点有标号特征。）
-    let nextNodeName = "新节点";
+    let nextNodeName = this.project.stageUtils.replaceAutoNameTemplate(
+      Settings.autoNamerTreeNodeTemplate,
+      this.project.stageManager.getTextNodes()[0] ?? currentSelectNode,
+    );
     let isAddNewNumberName = false;
     if (currentSelectNode instanceof TextNode) {
       const newName = extractNumberAndReturnNext(currentSelectNode.text);

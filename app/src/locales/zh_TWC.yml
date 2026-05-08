@@ -494,6 +494,15 @@ settings:
       輸入`{{i}}` 會自動替換為編號（與標題保持一致）。
       輸入`{{date}}` 會自動替換為目前日期。
       輸入`{{time}}` 會自動替換為目前時間。
+  autoNamerTreeNodeTemplate:
+    title: Tab鍵樹形生長節點的初始名稱範本
+    description: |
+      在鍵盤模式下按Tab鍵生長新節點時，新節點的初始名稱。
+      輸入`{{i}}` 會自動替換為編號，避免名稱重複。
+      例如`Node_{{i}}` 會自動替換為`Node_0`, `Node_1`, `Node_2`…
+      輸入`{{date}}` 會自動替換為目前日期。
+      輸入`{{time}}` 會自動替換為目前時間。
+      可以組合使用，例如`Node_{{i}}-{{date}}`
   autoSaveWhenClose:
     title: 點擊視窗右上角關閉按鈕時自動儲存專案檔案
     description: '關閉軟體時，如果有未儲存的專案檔案，會彈出提示框詢問是否儲存。
@@ -1265,13 +1274,6 @@ keyBinds:
   setSelectedEdgesToSolid:
     title: 將選中的邊切換為實線
     description: 將當前選中的連線的線型設置為實線
-  reverseSelectedNodeEdge:
-    title: 反轉選取的節點的所有連線的方向
-    description: '按下後，所有框選選中的節點中
-
-      每個節點的所有連線都會反轉方向
-
-      進而實現更快捷的一連多'
   createUndirectedEdgeFromEntities:
     title: 選取的實體之間建立無向連線
     description: 按下後，選取的兩個或多個實體之間會建立一條無向連線

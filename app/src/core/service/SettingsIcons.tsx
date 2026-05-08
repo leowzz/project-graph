@@ -92,6 +92,7 @@ export const settingsIcons = {
   autoNamerTemplate: Tag,
   autoNamerSectionTemplate: Tag,
   autoNamerDetailsTemplate: Tag,
+  autoNamerTreeNodeTemplate: Tag,
   autoSaveWhenClose: HardDriveDownload,
   autoSave: HardDrive,
   autoSaveInterval: Hourglass,

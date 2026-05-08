@@ -1650,7 +1650,7 @@ declare class KeyboardOnlyTreeEngine {
   ): Promise<ConnectableEntity | null>;
   changePreDirection(nodes: ConnectableEntity[], direction: "right" | "left" | "down" | "up"): void;
   addNodeEffectByPreDirection(node: ConnectableEntity | { _: "ConnectableEntity" | (string & {}) }): void;
-  onDeepGenerateNode(defaultText = "新节点", selectAll = true): Promise<void>;
+  onDeepGenerateNode(defaultText = "", selectAll = true): Promise<void>;
   onBroadGenerateNode(): Promise<void>;
   adjustTreeNode(
     entity: ConnectableEntity | { _: "ConnectableEntity" | (string & {}) },

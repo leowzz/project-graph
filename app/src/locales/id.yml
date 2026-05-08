@@ -450,6 +450,15 @@ settings:
       Masukkan `{{i}}` akan diganti dengan nomor (sinkron dengan judul).
       Masukkan `{{date}}` akan diganti dengan tanggal saat ini.
       Masukkan `{{time}}` akan diganti dengan waktu saat ini.
+  autoNamerTreeNodeTemplate:
+    title: Template Nama Awal Node Saat Tab Ditekan
+    description: |
+      Nama awal untuk node baru yang dibuat dengan menekan Tab dalam mode keyboard.
+      Masukkan `{{i}}` akan diganti dengan nomor untuk menghindari nama duplikat.
+      Contoh, `Node_{{i}}` akan diganti menjadi `Node_0`, `Node_1`, `Node_2`...
+      Masukkan `{{date}}` akan diganti dengan tanggal saat ini.
+      Masukkan `{{time}}` akan diganti dengan waktu saat ini.
+      Dapat dikombinasikan, contoh `Node_{{i}}-{{date}}`
   autoSaveWhenClose:
     title: Simpan File Proyek Otomatis Saat Klik Tombol Tutup Jendela
     description: |
@@ -1312,12 +1321,6 @@ keyBinds:
   setSelectedEdgesToSolid:
     title: Ubah Garis yang Dipilih Menjadi Solid
     description: Mengatur tipe garis yang dipilih menjadi solid
-  reverseSelectedNodeEdge:
-    title: Balikkan Semua Garis Node yang Dipilih
-    description: |
-      Setelah ditekan, dalam semua node yang dipilih dengan seleksi kotak
-      Setiap garis setiap node akan dibalikkan arahnya
-      Sehingga mewujudkan satu-ke-banyak yang lebih cepat
   createUndirectedEdgeFromEntities:
     title: Buat Garis Tak Berarah antar Entitas yang Dipilih
     description: |

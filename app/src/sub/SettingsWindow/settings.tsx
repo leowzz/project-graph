@@ -246,7 +246,12 @@ const categories = {
     ],
   },
   automation: {
-    autoNamer: ["autoNamerTemplate", "autoNamerSectionTemplate", "autoNamerDetailsTemplate"],
+    autoNamer: [
+      "autoNamerTemplate",
+      "autoNamerSectionTemplate",
+      "autoNamerDetailsTemplate",
+      "autoNamerTreeNodeTemplate",
+    ],
     autoSave: ["autoSaveWhenClose", "autoSave", "autoSaveInterval"],
     autoBackup: [
       "autoBackup",
