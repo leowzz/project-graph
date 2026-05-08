@@ -208,4 +208,18 @@ export abstract class Edge extends ConnectableAssociation {
       this.targetRectangleRate.y === 0.5
     );
   }
+
+  /**
+   * 是否是非标准连线（端点位置不对应标准四方向，也不是默认中心方向）
+   * 例如：右侧发出 + 上侧接收，即混合了不同轴的端点
+   */
+  public isNonStandardDirection(): boolean {
+    return (
+      !this.isLeftToRight() &&
+      !this.isRightToLeft() &&
+      !this.isTopToBottom() &&
+      !this.isBottomToTop() &&
+      !this.isUnknownDirection()
+    );
+  }
 }

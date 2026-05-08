@@ -548,6 +548,9 @@ export class AutoLayoutFastTree {
       const outTopEdges = outEdges.filter((edge) => edge.isBottomToTop());
       const outBottomEdges = outEdges.filter((edge) => edge.isTopToBottom());
       const outUnknownEdges = outEdges.filter((edge) => edge.isUnknownDirection());
+      // 非标准连线：端点是混合轴向（如右侧发出+上侧接收），不属于四个标准方向也不是默认中心
+      // 对于非标准连线，只保持父子节点的相对位置不变，但仍对其子树进行递归格式化
+      const outNonStandardEdges = outEdges.filter((edge) => edge.isNonStandardDirection());
 
       // 获取排序后的子节点列表
       let rightChildList = outRightEdges.map((edge) => edge.target);
@@ -555,6 +558,7 @@ export class AutoLayoutFastTree {
       let topChildList = outTopEdges.map((edge) => edge.target);
       let bottomChildList = outBottomEdges.map((edge) => edge.target);
       const unknownChildList = outUnknownEdges.map((edge) => edge.target);
+      const nonStandardChildList = outNonStandardEdges.map((edge) => edge.target);
 
       rightChildList = this.getSortedChildNodes(node, rightChildList, "col");
       leftChildList = this.getSortedChildNodes(node, leftChildList, "col");
@@ -574,6 +578,10 @@ export class AutoLayoutFastTree {
         dfs(child); // 递归口
       }
       for (const child of unknownChildList) {
+        dfs(child); // 递归口
+      }
+      // 非标准连线的子节点：递归格式化其子树，但不调整该子节点与父节点之间的相对位置
+      for (const child of nonStandardChildList) {
         dfs(child); // 递归口
       }
       // 排列这些子节点，然后调整子树位置到根节点旁边
