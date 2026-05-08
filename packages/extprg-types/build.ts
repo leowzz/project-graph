@@ -21,7 +21,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const APP_DIR = resolve(ROOT, "app");
 const SRC_DIR = resolve(APP_DIR, "src");
 const TARGET_FILE = resolve(SRC_DIR, "core/extension/api/host.tsx");
-const OUTPUT_FILE = resolve(SRC_DIR, "core/extension/api/extension-api.d.ts");
+// const OUTPUT_FILE = resolve(SRC_DIR, "core/extension/api/extension-api.d.ts");
 
 /** 包的 api.d.ts 目标路径 */
 const PKG_API_FILE = resolve(ROOT, "packages/extprg-types/index.d.ts");
@@ -1249,8 +1249,8 @@ function main() {
   // 生成输出
   console.log("📝 生成输出文件...");
   const output = generateOutput(sig);
-  writeFileSync(OUTPUT_FILE, output, "utf-8");
-  console.log(`✅ 已写入: ${OUTPUT_FILE}`);
+  // writeFileSync(OUTPUT_FILE, output, "utf-8");
+  // console.log(`✅ 已写入: ${OUTPUT_FILE}`);
 
   // 同步到 extprg-types 包
   writeFileSync(PKG_API_FILE, output, "utf-8");
