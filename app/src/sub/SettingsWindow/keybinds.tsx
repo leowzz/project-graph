@@ -754,7 +754,6 @@ export const shortcutKeysGroups: ShortcutKeysGroup[] = [
     icon: <Spline />,
     keys: [
       "reverseEdges",
-      "reverseSelectedNodeEdge",
       "createUndirectedEdgeFromEntities",
       "selectAllEdges",
       "createConnectPointWhenDragConnecting",

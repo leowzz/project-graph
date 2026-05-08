@@ -628,30 +628,6 @@ export class StageManager {
     return true;
   }
 
-  /**
-   * 反转一个节点与他相连的所有连线方向
-   * @param connectEntity
-   */
-  private reverseNodeEdges(connectEntity: ConnectableEntity) {
-    const prepareReverseEdges = [];
-    for (const edge of this.getLineEdges()) {
-      if (edge.target === connectEntity || edge.source === connectEntity) {
-        prepareReverseEdges.push(edge);
-      }
-    }
-    this.project.nodeConnector.reverseEdges(prepareReverseEdges);
-  }
-
-  /**
-   * 反转所有选中的节点的每个节点的连线
-   */
-  reverseSelectedNodeEdge() {
-    const entities = this.getSelectedEntities().filter((entity) => entity instanceof ConnectableEntity);
-    for (const entity of entities) {
-      this.reverseNodeEdges(entity);
-    }
-  }
-
   reverseSelectedEdges() {
     const selectedEdges = this.getLineEdges().filter((edge) => edge.isSelected);
     if (selectedEdges.length === 0) {

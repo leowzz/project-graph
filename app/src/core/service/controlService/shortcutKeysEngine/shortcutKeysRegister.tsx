@@ -86,7 +86,6 @@ import {
   FolderPlus,
   Ghost,
   GitBranch,
-  GitCompare,
   GraduationCap,
   Grip,
   History,
@@ -569,14 +568,6 @@ export const allKeyBinds: KeyBindItem[] = [
     when: whenHasSelectedLineEdges,
     onPress: (project) => project!.stageManager.reverseSelectedEdges(),
   },
-  {
-    id: "reverseSelectedNodeEdge",
-    defaultKey: "C-t",
-    icon: GitCompare,
-    when: whenHasSelectedConnectableEntities,
-    onPress: (project) => project!.stageManager.reverseSelectedNodeEdge(),
-  },
-
   /*------- 创建无向边 -------*/
   {
     id: "createUndirectedEdgeFromEntities",
