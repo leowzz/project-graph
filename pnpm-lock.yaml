@@ -625,6 +625,9 @@ importers:
       "@tauri-apps/plugin-store":
         specifier: ^2.0.0
         version: 2.4.3
+      comlink:
+        specifier: ^4.4.2
+        version: 4.4.2
       lucide-react:
         specifier: ^0.400.0
         version: 0.400.0(react@19.1.0)

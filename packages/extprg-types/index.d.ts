@@ -3,7 +3,7 @@
 
 /**
  * Auto-generated. Do not edit manually.
- * 2026-05-07T14:51:42.038Z
+ * 2026-05-08T09:58:30.153Z
  */
 
 // ── 第三方类型导入 ──
@@ -75,7 +75,6 @@ import type {
   FolderPlus,
   Ghost,
   GitBranch,
-  GitCompare,
   GraduationCap,
   Grip,
   History,
@@ -1128,6 +1127,7 @@ declare class Edge extends ConnectableAssociation {
   isTopToBottom(): Promise<boolean>;
   isBottomToTop(): Promise<boolean>;
   isUnknownDirection(): Promise<boolean>;
+  isNonStandardDirection(): Promise<boolean>;
 }
 
 declare class EdgeRenderer {
@@ -1650,7 +1650,7 @@ declare class KeyboardOnlyTreeEngine {
   ): Promise<ConnectableEntity | null>;
   changePreDirection(nodes: ConnectableEntity[], direction: "right" | "left" | "down" | "up"): void;
   addNodeEffectByPreDirection(node: ConnectableEntity | { _: "ConnectableEntity" | (string & {}) }): void;
-  onDeepGenerateNode(defaultText = "新节点", selectAll = true): Promise<void>;
+  onDeepGenerateNode(defaultText = "", selectAll = true): Promise<void>;
   onBroadGenerateNode(): Promise<void>;
   adjustTreeNode(
     entity: ConnectableEntity | { _: "ConnectableEntity" | (string & {}) },
@@ -2966,8 +2966,6 @@ declare class StageManager {
     sourceRectRate?: [number, number],
     targetRectRate?: [number, number],
   ): Promise<void>;
-  reverseNodeEdges(connectEntity: ConnectableEntity | { _: "ConnectableEntity" | (string & {}) }): Promise<void>;
-  reverseSelectedNodeEdge(): Promise<void>;
   reverseSelectedEdges(): Promise<void>;
   generateNodeTreeByText(text: string, indention: number = 4, location = this.project.camera.location): Promise<void>;
   generateNodeGraphByText(text: string, location = this.project.camera.location): Promise<void>;
@@ -3668,10 +3666,13 @@ export declare function extensionHostApiFactory(extension: Extension | { _: "Ext
 
 declare global {
   const prg: ReturnType<typeof extensionHostApiFactory>;
+  const Comlink: typeof import("comlink");
   interface Window {
     prg: ReturnType<typeof extensionHostApiFactory>;
+    Comlink: typeof import("comlink");
   }
   interface DedicatedWorkerGlobalScope {
     prg: ReturnType<typeof extensionHostApiFactory>;
+    Comlink: typeof import("comlink");
   }
 }

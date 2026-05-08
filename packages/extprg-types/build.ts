@@ -1090,11 +1090,14 @@ function generateOutput(funcSignature: string): string {
   // 5. Global type augmentation
   lines.push("declare global {");
   lines.push("  const prg: ReturnType<typeof extensionHostApiFactory>;");
+  lines.push('  const Comlink: typeof import("comlink");');
   lines.push("  interface Window {");
   lines.push("    prg: ReturnType<typeof extensionHostApiFactory>;");
+  lines.push('    Comlink: typeof import("comlink");');
   lines.push("  }");
   lines.push("  interface DedicatedWorkerGlobalScope {");
   lines.push("    prg: ReturnType<typeof extensionHostApiFactory>;");
+  lines.push('    Comlink: typeof import("comlink");');
   lines.push("  }");
   lines.push("}");
   lines.push("");
