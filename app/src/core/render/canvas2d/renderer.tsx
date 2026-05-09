@@ -155,12 +155,7 @@ export class Renderer {
 
   // 是否超出了视野之外
   isOverView(viewRectangle: Rectangle, entity: StageObject): boolean {
-    if (!Settings.limitCameraInCycleSpace) {
-      // 如果没有开循环空间，就要看看是否超出了视野
-      return !viewRectangle.isCollideWith(entity.collisionBox.getRectangle());
-    }
-    // 如果开了循环空间，就永远不算超出视野
-    return false;
+    return !viewRectangle.isCollideWith(entity.collisionBox.getRectangle());
   }
 
   // 渲染中心准星

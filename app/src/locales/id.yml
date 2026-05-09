@@ -360,22 +360,6 @@ settings:
     title: Tinggi Jendela Mini
     description: |
       Tinggi jendela saat beralih ke jendela mini, dalam piksel
-  limitCameraInCycleSpace:
-    title: Aktifkan Batasan Gerakan Kamera dalam Ruang Siklik
-    description: |
-      Saat diaktifkan, kamera hanya dapat bergerak dalam area persegi panjang
-      Dapat mencegah kamera tersesat saat bergerak terlalu jauh
-      Area persegi panjang ini akan membentuk ruang siklik, mirip dengan peta dalam game ular tanpa batas
-      Ke atas teratas akan kembali ke bawah, ke kiri terkiri akan kembali ke kanan
-      Perhatian: Fitur ini masih dalam tahap eksperimen
-  cameraCycleSpaceSizeX:
-    title: Lebar Ruang Siklik
-    description: |
-      Lebar ruang siklik, dalam piksel
-  cameraCycleSpaceSizeY:
-    title: Tinggi Ruang Siklik
-    description: |
-      Tinggi ruang siklik, dalam piksel
   renderEffect:
     title: Efek Render
     description: Apakah merender efek, jika lag dapat dimatikan

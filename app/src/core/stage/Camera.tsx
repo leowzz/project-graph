@@ -1,4 +1,3 @@
-import { NumberFunctions } from "@/core/algorithm/numberFunctions";
 import { Project, service } from "@/core/Project";
 import { easeOutExpo } from "@/core/service/feedbackService/effectEngine/mathTools/easings";
 import { Settings } from "@/core/service/Settings";
@@ -207,10 +206,6 @@ export class Camera {
         this.setLocationByOtherLocation(this.targetLocationByScale, diffViewVector);
       }
     }
-    // 循环空间
-    if (Settings.limitCameraInCycleSpace) {
-      this.dealCycleSpace();
-    }
     if (this.isStartZoomIn) {
       this.targetScale *= 1.05;
     }
@@ -253,15 +248,6 @@ export class Camera {
 
   public isStartZoomIn: boolean = false;
   public isStartZoomOut: boolean = false;
-
-  /**
-   * 处理循环空间
-   */
-  private dealCycleSpace() {
-    this.location.x = NumberFunctions.mod(this.location.x, Settings.cameraCycleSpaceSizeX);
-    this.location.y = NumberFunctions.mod(this.location.y, Settings.cameraCycleSpaceSizeY);
-    // 限制缩放不能超过循环空间大小
-  }
 
   /**
    * 修改摄像机位置，但是通过一种奇特的方式来修改

@@ -370,22 +370,6 @@ settings:
     title: 迷你窗口的高度
     description: |
       點擊切換至迷你窗口時，窗口的高度，單位為像素
-  limitCameraInCycleSpace:
-    title: 開啟循環空間限制攝像機移動
-    description: |
-      開啟後，攝像機只能在一個矩形區域內移動
-      可以防止攝像機移動到很遠的地方迷路
-      該矩形區域會形成一個循環空間，類似於無邊貪吃蛇遊戲中的地圖
-      走到最上面會回到最下面，走到最左邊會回到最右邊
-      注意：該功能還在實驗階段
-  cameraCycleSpaceSizeX:
-    title: 循環空間寬度
-    description: |
-      循環空間的寬度，單位為像素
-  cameraCycleSpaceSizeY:
-    title: 循環空間高度
-    description: |
-      循環空間的高度，單位為像素
   renderEffect:
     title: 渲染特效
     description: 是否渲染特效，如果卡頓可以關閉

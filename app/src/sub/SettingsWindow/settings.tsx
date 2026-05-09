@@ -237,13 +237,7 @@ const categories = {
       "entityDetailsWidthLimit",
     ],
     debug: ["showDebug", "protectingPrivacy", "protectingPrivacyMode"],
-    experimental: [
-      "limitCameraInCycleSpace",
-      "cameraCycleSpaceSizeX",
-      "cameraCycleSpaceSizeY",
-      "windowCollapsingWidth",
-      "windowCollapsingHeight",
-    ],
+    experimental: ["windowCollapsingWidth", "windowCollapsingHeight"],
   },
   automation: {
     autoNamer: [

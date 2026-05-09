@@ -256,22 +256,6 @@ settings:
     title: Entity Details Width Limit
     description: |
       Limits the maximum width of entity details. Excess content will be wrapped to the next line.
-  limitCameraInCycleSpace:
-    title: Enable Camera Movement Limit in Cycle Space
-    description: |
-      When enabled, the camera can only move within a rectangular area.
-      This prevents the camera from moving too far and getting lost.
-      The rectangular area forms a cycle space, similar to the map in the game "Snake," 
-      where moving to the top will bring you to the bottom, and moving to the left will bring you to the right.
-      Note: This feature is still in the experimental stage.
-  cameraCycleSpaceSizeX:
-    title: Cycle Space Width
-    description: |
-      The width of the cycle space, measured in pixels.
-  cameraCycleSpaceSizeY:
-    title: Cycle Space Height
-    description: |
-      The height of the cycle space, measured in pixels.
   renderEffect:
     title: Render Effects
     description: Whether to render effects. If experiencing lag, this can be 

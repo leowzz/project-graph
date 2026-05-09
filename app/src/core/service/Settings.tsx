@@ -34,8 +34,6 @@ export const settingsSchema = z.object({
   windowCollapsingWidth: z.number().int().min(50).max(2000).default(300),
   windowCollapsingHeight: z.number().int().min(25).max(2000).default(300),
   limitCameraInCycleSpace: z.boolean().default(false),
-  cameraCycleSpaceSizeX: z.number().int().min(1000).max(10000).default(1000),
-  cameraCycleSpaceSizeY: z.number().int().min(1000).max(10000).default(1000),
   historySize: z.number().int().min(1).max(5000).default(150),
   autoRefreshStageByMouseAction: z.boolean().default(true),
   isPauseRenderWhenManipulateOvertime: z.boolean().default(false),
