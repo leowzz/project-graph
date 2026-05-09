@@ -1584,18 +1584,6 @@ export const allKeyBinds: KeyBindItem[] = [
     },
   },
   {
-    id: "gravityLayout",
-    defaultKey: "g",
-    icon: Sun,
-    when: whenHasProject,
-    onPress: (project) => {
-      project?.autoLayout.setGravityLayoutStart();
-    },
-    onRelease: (project) => {
-      project?.autoLayout.setGravityLayoutEnd();
-    },
-  },
-  {
     id: "setNodeTreeDirectionUp",
     defaultKey: "W W",
     icon: ArrowUp,

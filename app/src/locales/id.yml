@@ -1400,11 +1400,6 @@ keyBinds:
     description: |
       Lakukan penyesuaian layout otomatis pada struktur graf asiklik berarah (DAG) yang dipilih
       Hanya tersedia saat node yang dipilih membentuk struktur DAG
-  gravityLayout:
-    title: Tahan Layout Gaya Gravitasi
-    description: |
-      Setelah memilih sekelompok node yang terhubung garis, tahan tombol ini untuk melakukan layout gaya gravitasi.
-      Perhatian jika ingin menyesuaikan kustom, hanya dapat diatur ke tombol non-modifier tunggal, jika tidak mungkin ada bug yang tidak diketahui.
   setNodeTreeDirectionLeft:
     title: Atur Arah Tumbuh Pohon Node Saat Ini ke Kiri
     description: |

@@ -261,10 +261,6 @@ declare class AutoComputeUtils {
 
 declare class AutoLayout {
   constructor(project: Project | { _: "Project" | (string & {}) });
-  isGravityLayoutStart: Promise<boolean>;
-  tick(): Promise<void>;
-  setGravityLayoutStart(): Promise<void>;
-  setGravityLayoutEnd(): Promise<void>;
   getDAGLayoutInput(entities: ConnectableEntity[]): Promise<{
     nodes: Array<{ id: string; rectangle: Rectangle }>;
     edges: Array<{ from: string; to: string }>;
@@ -278,7 +274,6 @@ declare class AutoLayout {
     edges: Array<{ from: string; to: string }>,
   ): Promise<{ order: string[]; levels: Map<string, number> }>;
   autoLayoutDAG(entities: ConnectableEntity[]): Promise<void>;
-  gravityLayoutTick(): Promise<void>;
 }
 
 declare class AutoLayoutFastTree {

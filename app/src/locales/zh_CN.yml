@@ -1396,11 +1396,6 @@ keyBinds:
     description: |
       对选中的有向无环图（DAG）结构进行自动布局调整
       仅当选中节点构成DAG结构时可用
-  gravityLayout:
-    title: 持续按下引力式布局
-    description: |
-      选中一堆连线的节点群后，持续按下该键可以进行引力式布局。
-      注意此键若想自定义，只能设置为单个非修饰键，否则可能有未知bug。zh
   setNodeTreeDirectionLeft:
     title: 设置当前节点的树形生长方向为向左
     description: |

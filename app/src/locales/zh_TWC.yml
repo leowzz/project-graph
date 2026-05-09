@@ -1354,11 +1354,6 @@ keyBinds:
     description: '對選取的有向無環圖（DAG）結構進行自動佈局調整
 
       僅當選取節點構成 DAG 結構時可用'
-  gravityLayout:
-    title: 持續按下引力式佈局
-    description: '選取一堆連線的節點群後，持續按下該鍵可以進行引力式佈局。
-
-      注意此鍵若想自訂，只能設定為單個非修飾鍵，否則可能有未知bug。'
   setNodeTreeDirectionLeft:
     title: 設定目前節點的樹狀生長方向為向左
     description: '需要選取節點後按下此快捷鍵

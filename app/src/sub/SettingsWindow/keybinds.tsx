@@ -700,7 +700,6 @@ export const shortcutKeysGroups: ShortcutKeysGroup[] = [
       "generateNodeGraphMoveRight",
       "treeGraphAdjust",
       "treeGraphAdjustSelectedAsRoot",
-      "gravityLayout",
       "setNodeTreeDirectionUp",
       "setNodeTreeDirectionDown",
       "setNodeTreeDirectionLeft",
