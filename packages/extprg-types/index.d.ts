@@ -3,7 +3,7 @@
 
 /**
  * Auto-generated. Do not edit manually.
- * 2026-05-08T10:01:33.221Z
+ * 2026-05-12T12:57:55.114Z
  */
 
 // ── 第三方类型导入 ──
@@ -402,7 +402,6 @@ declare class Camera {
   addScaleFollowMouseLocationTime(sec: number): Promise<void>;
   isStartZoomIn: Promise<boolean>;
   isStartZoomOut: Promise<boolean>;
-  dealCycleSpace(): Promise<void>;
   setLocationByOtherLocation(
     otherWorldLocation: Vector | { _: "Vector" | (string & {}) },
     viewLocation: Vector | { _: "Vector" | (string & {}) },
@@ -1622,6 +1621,8 @@ declare class KeyboardOnlyGraphEngine {
   createFinished(): Promise<void>;
   moveVirtualTarget(delta: Vector | { _: "Vector" | (string & {}) }): void;
   createCancel(): void;
+  startMovingDirection(dir: Direction): void;
+  stopMovingDirection(dir: Direction): void;
   isTargetLocationHaveEntity(): Promise<boolean>;
 }
 
@@ -3288,7 +3289,6 @@ declare class TextNode extends ConnectableEntity implements ResizeAble {
   text: Promise<string>;
   collisionBox: Promise<CollisionBox>;
   color: Promise<Color>;
-  isAiGenerating: Promise<boolean>;
   fontScaleLevel: Promise<number>;
   enableResizeCharCount;
   sizeAdjust: Promise<string>;

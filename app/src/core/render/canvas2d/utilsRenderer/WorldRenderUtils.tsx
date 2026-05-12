@@ -66,7 +66,7 @@ export class WorldRenderUtils {
    * 绘制一条贝塞尔曲线
    * @param curve
    */
-  renderBezierCurve(curve: CubicBezierCurve, color: Color, width: number): void {
+  private renderBezierCurve(curve: CubicBezierCurve, color: Color, width: number): void {
     // 创建新的曲线对象，避免修改原始曲线数据
     const viewStart = this.project.renderer.transformWorld2View(curve.start);
     const viewEnd = this.project.renderer.transformWorld2View(curve.end);
@@ -76,14 +76,14 @@ export class WorldRenderUtils {
     // 使用视图坐标系下的点创建新的贝塞尔曲线
     const viewBezier = new CubicBezierCurve(viewStart, viewCtrlPt1, viewCtrlPt2, viewEnd);
 
-    this.project.curveRenderer.renderBezierCurve(viewBezier, color, width * this.project.camera.currentScale);
+    this.project.curveRenderer.renderBezierCurve(viewBezier, color, width);
   }
 
   /**
    * 绘制一条对称曲线
    * @param curve
    */
-  renderSymmetryCurve(curve: SymmetryCurve, color: Color, width: number): void {
+  public renderSymmetryCurve(curve: SymmetryCurve, color: Color, width: number): void {
     this.renderBezierCurve(curve.bezier, color, width);
   }
 

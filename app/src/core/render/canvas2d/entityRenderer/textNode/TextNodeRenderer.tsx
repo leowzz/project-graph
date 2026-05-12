@@ -59,7 +59,16 @@ export class TextNodeRenderer {
       this.renderTextNodeTextLayer(node);
     }
 
-    if (node.isSelected) {
+    if (node.isEditing) {
+      // 在外面增加一个虚线框
+      this.project.collisionBoxRenderer.render(
+        node.collisionBox,
+        this.project.stageStyleManager.currentStyle.CollideBoxSelected,
+        true,
+      );
+    }
+
+    if (node.isSelected && !node.isEditing) {
       // 在外面增加一个框
       this.project.collisionBoxRenderer.render(
         node.collisionBox,
@@ -95,21 +104,6 @@ export class TextNodeRenderer {
 
       // 渲染孪生同步关系的星形虚线（以选中节点为中心，连向所有孪生兄弟的中心）
       SyncAssociationRenderer.renderSyncLines(this.project, node);
-    }
-    if (node.isAiGenerating) {
-      const borderColor = this.project.stageStyleManager.currentStyle.CollideBoxSelected.clone();
-      borderColor.a = Random.randomFloat(0.2, 1);
-      // 在外面增加一个框
-      this.project.shapeRenderer.renderRect(
-        new Rectangle(
-          this.project.renderer.transformWorld2View(node.rectangle.location),
-          node.rectangle.size.multiply(this.project.camera.currentScale),
-        ),
-        node.color,
-        borderColor,
-        Random.randomFloat(1, 10) * this.project.camera.currentScale,
-        node.getBorderRadius() * this.project.camera.currentScale,
-      );
     }
     // 用户不建议放大标签，所以这里注释掉了，但又有用户觉得这个也挺好，所以加个设置项
     if (Settings.enableTagTextNodesBigDisplay) {

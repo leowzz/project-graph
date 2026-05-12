@@ -265,7 +265,6 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
     );
   }
   public getNormalStageSvg(edge: LineEdge): React.ReactNode {
-    let lineBody: React.ReactNode = <></>;
     let textNode: React.ReactNode = <></>;
     const edgeColor = edge.color.equals(Color.Transparent)
       ? this.project.stageStyleManager.currentStyle.StageObjectBorder
@@ -349,7 +348,7 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
     const adjustedEnd = arrowTip.add(curveEndDirection.multiply(arrowSize / 2));
 
     const adjustedBezier = new CubicBezierCurve(bezier.start, bezier.ctrlPt1, bezier.ctrlPt2, adjustedEnd);
-    lineBody = SvgUtils.bezierCurve(adjustedBezier, edgeColor, 2);
+    const lineBody = SvgUtils.bezierCurve(adjustedBezier, edgeColor, 2);
 
     if (edge.text.trim() !== "") {
       const midPoint = bezier.getPointByT(0.5);
@@ -490,7 +489,7 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
         5 * this.project.camera.currentScale,
       );
     } else {
-      this.project.worldRenderUtils.renderSymmetryCurve(curve, color, width);
+      this.project.worldRenderUtils.renderSymmetryCurve(curve, color, width * this.project.camera.currentScale);
     }
     // 画箭头
     if (!edge || this.shouldRenderTargetArrow(edge)) {

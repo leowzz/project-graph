@@ -32,11 +32,6 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
   color: Color = Color.Transparent;
 
   /**
-   * 是否正在使用AI生成
-   */
-  public isAiGenerating: boolean = false;
-
-  /**
    * 字体缩放级别，整数，基准值为0，对应默认字体大小
    * 计算公式：finalFontSize = Renderer.FONT_SIZE * Math.pow(2, fontScaleLevel)
    */
