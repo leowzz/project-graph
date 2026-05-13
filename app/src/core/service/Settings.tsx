@@ -9,6 +9,7 @@ export const settingsSchema = z.object({
     .default("zh_CN"),
   isClassroomMode: z.boolean().default(false),
   showQuickSettingsToolbar: z.boolean().default(true),
+  showRecentFilesThumbnails: z.boolean().default(true),
   windowBackgroundAlpha: z.number().min(0).max(1).default(0.9),
   windowBackgroundOpacityAfterOpenClickThrough: z.number().min(0).max(1).default(0),
   windowBackgroundOpacityAfterCloseClickThrough: z.number().min(0).max(1).default(0.5),
@@ -161,7 +162,7 @@ export const settingsSchema = z.object({
   showGrid: z.boolean().default(true),
   maxFps: z.number().default(60),
   maxFpsUnfocused: z.number().default(30),
-  effectsPerferences: z.record(z.boolean()).default({}),
+  effectsPerferences: z.record(z.string(), z.boolean()).default({}),
   autoFillNodeColor: z.tuple([z.number(), z.number(), z.number(), z.number()]).default([0, 0, 0, 0]),
   autoFillNodeColorEnable: z.boolean().default(true),
   autoFillPenStrokeColor: z.tuple([z.number(), z.number(), z.number(), z.number()]).default([0, 0, 0, 0]),
@@ -446,9 +447,9 @@ export const settingsSchema = z.object({
       { type: "item", id: "setSelectedImageAsBackground", label: "转化为背景图片", icon: "Images" },
       { type: "item", id: "unsetSelectedImageAsBackground", label: "取消背景化", icon: "SquareSquare" },
       { type: "item", id: "saveSelectedImagesToProjectDirectory", label: "另存图片到当前prg所在目录下", icon: "Save" },
-    ]),
+    ] as any),
   disabledExtensions: z.array(z.string()).default([]),
-  extensionSettings: z.record(z.record(z.unknown())).default({}),
+  extensionSettings: z.record(z.string(), z.record(z.string(), z.unknown())).default({}),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;

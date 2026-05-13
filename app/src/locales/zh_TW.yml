@@ -213,6 +213,11 @@ settings:
     description: |
       控制是否在界面右側顯示快捷操作欄（快捷設置欄）。
       快捷設置欄可以讓您快速切換常用設置項的開關狀態。
+  showRecentFilesThumbnails:
+    title: 最近文件面板顯示縮略圖
+    description: |
+      控制“最近打開的文件”面板中是否顯示工程文件縮略圖。
+      關閉後可減少界面干擾。
   autoAdjustLineEndpointsByMouseTrack:
     title: 根據鼠標拖動軌跡自動調整生成連線的端點位置
     description: |

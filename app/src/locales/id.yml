@@ -203,6 +203,10 @@ settings:
     description: |
       Mengontrol apakah menampilkan bilah operasi cepat di sisi kanan antarmuka (bilah pengaturan cepat).
       Bilah pengaturan cepat memungkinkan Anda mengalihkan status pengaturan umum dengan cepat.
+  showRecentFilesThumbnails:
+    title: Tampilkan Thumbnail di File Terbaru
+    description: |
+      Mengontrol apakah menampilkan thumbnail proyek di panel "File Terbaru".
   autoAdjustLineEndpointsByMouseTrack:
     title: Sesuaikan Posisi Ujung Garis Otomatis Berdasarkan Jejak Mouse
     description: |

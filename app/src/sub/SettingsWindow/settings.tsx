@@ -204,6 +204,7 @@ const categories = {
       "language",
       "isClassroomMode",
       "showQuickSettingsToolbar",
+      "showRecentFilesThumbnails",
       "showKeyBindHint",
       "windowBackgroundAlpha",
       "windowBackgroundOpacityAfterOpenClickThrough",

@@ -5,11 +5,13 @@ import { RecentFileManager } from "@/core/service/dataFileService/RecentFileMana
 import { DragFileIntoStageEngine } from "@/core/service/dataManageService/dragFileIntoStageEngine/dragFileIntoStageEngine";
 import { SoundService } from "@/core/service/feedbackService/SoundService";
 import { onOpenFile } from "@/core/service/GlobalMenu";
+import { Settings } from "@/core/service/Settings";
 import { SubWindow } from "@/core/service/SubWindow";
 import { activeTabAtom } from "@/state";
 import { cn } from "@/utils/cn";
 import { PathString } from "@/utils/pathString";
-import { readPrgThumbnail } from "@/utils/readPrgThumbnail";
+import { isMac } from "@/utils/platform";
+import { readCachedPrgThumbnail, readPrgThumbnailBlob, refreshPrgThumbnailCache } from "@/utils/readPrgThumbnail";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { invoke } from "@tauri-apps/api/core";
@@ -25,10 +27,11 @@ import {
   Import,
   Link,
   LoaderPinwheel,
+  RefreshCcw,
   Trash2,
   X,
 } from "lucide-react";
-import React, { ChangeEventHandler, useEffect } from "react";
+import React, { type ChangeEventHandler, useEffect } from "react";
 import { toast } from "sonner";
 import { URI } from "vscode-uri";
 
@@ -80,12 +83,21 @@ type FolderNode = {
 // 缩略图缓存（会话级别，fsPath → objectURL）
 const thumbnailCache = new Map<string, string>();
 
-function FileThumbnail({ fsPath }: { fsPath: string }) {
+function clearThumbnailCache() {
+  for (const url of thumbnailCache.values()) {
+    URL.revokeObjectURL(url);
+  }
+  thumbnailCache.clear();
+}
+
+function FileThumbnail({ fsPath, refreshVersion }: { fsPath: string; refreshVersion: number }) {
   const [thumbnailUrl, setThumbnailUrl] = React.useState<string | null>(null);
   const [loaded, setLoaded] = React.useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setLoaded(false);
+    setThumbnailUrl(null);
 
     const cached = thumbnailCache.get(fsPath);
     if (cached) {
@@ -94,15 +106,16 @@ function FileThumbnail({ fsPath }: { fsPath: string }) {
       return;
     }
 
-    readPrgThumbnail(fsPath)
+    const readThumbnail = isMac ? readCachedPrgThumbnail : readPrgThumbnailBlob;
+    readThumbnail(fsPath)
       .then((blob) => {
-        if (cancelled || !blob) return;
-        const url = URL.createObjectURL(blob);
-        thumbnailCache.set(fsPath, url);
-        if (!cancelled) {
-          setThumbnailUrl(url);
-          setLoaded(true);
+        if (cancelled) return;
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          thumbnailCache.set(fsPath, url);
+          if (!cancelled) setThumbnailUrl(url);
         }
+        if (!cancelled) setLoaded(true);
       })
       .catch(() => {
         if (!cancelled) setLoaded(true);
@@ -111,13 +124,13 @@ function FileThumbnail({ fsPath }: { fsPath: string }) {
     return () => {
       cancelled = true;
     };
-  }, [fsPath]);
+  }, [fsPath, refreshVersion]);
 
   if (!loaded || !thumbnailUrl) {
     return <FileImage className="text-muted-foreground/40 h-10 w-10" />;
   }
 
-  return <img src={thumbnailUrl} alt="" className="h-12 w-12 rounded object-cover" />;
+  return <img src={thumbnailUrl} alt="" className="h-12 w-auto max-w-40 rounded object-contain" />;
 }
 
 /**
@@ -127,6 +140,7 @@ function FileThumbnail({ fsPath }: { fsPath: string }) {
 export default function RecentFilesWindow({ winId = "" }: { winId?: string }) {
   const [tab] = useAtom(activeTabAtom);
   const project = tab instanceof Project ? tab : undefined;
+  const [showThumbnails] = Settings.use("showRecentFilesThumbnails");
   /**
    * 数据中有多少就是多少
    */
@@ -148,6 +162,15 @@ export default function RecentFilesWindow({ winId = "" }: { winId?: string }) {
   const [isShowDoorEveryItem, setIsShowDoorEveryItem] = React.useState<boolean>(false);
   const [isNestedView, setIsNestedView] = React.useState<boolean>(false);
   const [isLocalPrivacyMode, setIsLocalPrivacyMode] = React.useState<boolean>(false);
+  const [thumbnailRefreshVersion, setThumbnailRefreshVersion] = React.useState(0);
+  const [isRefreshingThumbnails, setIsRefreshingThumbnails] = React.useState(false);
+
+  useEffect(() => {
+    if (!showThumbnails) {
+      clearThumbnailCache();
+      setThumbnailRefreshVersion((v) => v + 1);
+    }
+  }, [showThumbnails]);
 
   // 选择文件夹并导入PRG文件
   const importPrgFilesFromFolder = async () => {
@@ -276,6 +299,55 @@ export default function RecentFilesWindow({ winId = "" }: { winId?: string }) {
     }
   };
 
+  const refreshAllThumbnails = async () => {
+    if (isRefreshingThumbnails) return;
+    setIsRefreshingThumbnails(true);
+    try {
+      if (!isMac) {
+        clearThumbnailCache();
+        setThumbnailRefreshVersion((v) => v + 1);
+        toast.success("缩略图已刷新");
+        return;
+      }
+
+      const uniqueFsPaths = Array.from(new Set(recentFiles.map((f) => f.uri.fsPath)));
+      let updatedCount = 0;
+      let removedCount = 0;
+      let missingCount = 0;
+      const errors: string[] = [];
+
+      for (const fsPath of uniqueFsPaths) {
+        try {
+          const result = await refreshPrgThumbnailCache(fsPath);
+          if (result === "updated") updatedCount++;
+          if (result === "removed") removedCount++;
+          if (result === "missing") missingCount++;
+        } catch (e) {
+          errors.push(`${PathString.getFileNameFromPath(fsPath)}: ${String(e)}`);
+        }
+      }
+
+      clearThumbnailCache();
+      setThumbnailRefreshVersion((v) => v + 1);
+
+      if (errors.length > 0) {
+        toast.warning(`缩略图更新完成：成功 ${updatedCount} 个，失败 ${errors.length} 个`);
+        await Dialog.confirm("部分缩略图更新失败", errors.slice(0, 30).join("\n"));
+      } else {
+        const detail = [
+          `成功 ${updatedCount} 个`,
+          removedCount > 0 ? `移除 ${removedCount} 个` : null,
+          missingCount > 0 ? `无缩略图 ${missingCount} 个` : null,
+        ]
+          .filter(Boolean)
+          .join("，");
+        toast.success(`缩略图已更新：${detail}`);
+      }
+    } finally {
+      setIsRefreshingThumbnails(false);
+    }
+  };
+
   // 将最近文件转换为嵌套文件夹结构
   const buildFolderTree = (files: RecentFileManager.RecentFile[]): Record<string, FolderNode> => {
     const root: Record<string, FolderNode> = {};
@@ -375,7 +447,7 @@ export default function RecentFilesWindow({ winId = "" }: { winId?: string }) {
                   SoundService.play.mouseClickButton();
                 }}
               >
-                <FileThumbnail fsPath={file.uri.fsPath} />
+                {showThumbnails && <FileThumbnail fsPath={file.uri.fsPath} refreshVersion={thumbnailRefreshVersion} />}
                 {isPrivacyMode
                   ? encryptFileName(
                       PathString.getShortedFileName(PathString.absolute2file(decodeURI(file.uri.toString())), 12),
@@ -568,6 +640,20 @@ export default function RecentFilesWindow({ winId = "" }: { winId?: string }) {
             </>
           )}
         </button>
+
+        {showThumbnails && (
+          <button
+            onClick={refreshAllThumbnails}
+            disabled={isRefreshingThumbnails}
+            className={cn("bg-primary/10 hover:bg-primary/20 flex gap-2 rounded-md p-2 transition-colors", {
+              "pointer-events-none opacity-50": isRefreshingThumbnails,
+            })}
+            title="一键刷新所有最近文件的缩略图缓存"
+          >
+            <RefreshCcw className={cn(isRefreshingThumbnails && "animate-spin")} />
+            <span>{isRefreshingThumbnails ? "正在更新所有缩略图..." : "更新所有缩略图"}</span>
+          </button>
+        )}
       </div>
       <div className="flex w-full flex-col items-baseline justify-center px-4 text-xs">
         <p>{currentShowPath}</p>
@@ -625,7 +711,7 @@ export default function RecentFilesWindow({ winId = "" }: { winId?: string }) {
                 SoundService.play.mouseClickButton();
               }}
             >
-              <FileThumbnail fsPath={file.uri.fsPath} />
+              {showThumbnails && <FileThumbnail fsPath={file.uri.fsPath} refreshVersion={thumbnailRefreshVersion} />}
               {isLocalPrivacyMode
                 ? encryptFileName(
                     PathString.getShortedFileName(PathString.absolute2file(decodeURI(file.uri.toString())), 15),

@@ -43,6 +43,8 @@ import UserWindow from "@/sub/UserWindow";
 import { openTextImportWindow } from "@/sub/TextImportWindow";
 import { getDeviceId } from "@/utils/otherApi";
 import { PathString } from "@/utils/pathString";
+import { isMac } from "@/utils/platform";
+import { ensurePrgThumbnailCached } from "@/utils/readPrgThumbnail";
 import { showTreeValidationErrors } from "@/utils/treeValidation";
 import { Color, Vector } from "@graphif/data-structures";
 import { deserialize, serialize } from "@graphif/serializer";
@@ -52,7 +54,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { appCacheDir, dataDir, join, tempDir } from "@tauri-apps/api/path";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { exists, readFile, writeFile } from "@tauri-apps/plugin-fs";
+import { exists, mkdir, readFile, writeFile } from "@tauri-apps/plugin-fs";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { Uint8ArrayReader, Uint8ArrayWriter, ZipWriter } from "@zip.js/zip.js";
 import { useAtom } from "jotai";
@@ -1134,6 +1136,18 @@ export function GlobalMenu() {
             <FolderCog />
             打开软件配置信息文件夹
           </Item>
+          <Item
+            onClick={async () => {
+              const path = await join(await appCacheDir());
+              if (!(await exists(path))) {
+                await mkdir(path, { recursive: true });
+              }
+              await shellOpen(path);
+            }}
+          >
+            <FolderOpen />
+            打开软件缓存文件夹
+          </Item>
         </Content>
       </Menu>
 
@@ -1796,6 +1810,14 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
               }, 100);
             }
             await RecentFileManager.addRecentFileByUri(uri);
+            if (
+              isMac &&
+              Settings.showRecentFilesThumbnails &&
+              uri.scheme === "file" &&
+              uri.fsPath.toLowerCase().endsWith(".prg")
+            ) {
+              void ensurePrgThumbnailCached(uri.fsPath);
+            }
             Telemetry.event("打开文件", {
               loadServiceTime,
               readFileTime,

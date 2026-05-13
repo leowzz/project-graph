@@ -1,8 +1,46 @@
 import { Project } from "@/core/Project";
 import { sleep } from "@/utils/sleep";
+import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
+import { toast } from "sonner";
 
 const THUMBNAIL_MAX_DIMENSION = 256;
+
+/** 极端宽高比，超过这个比例视为极端 */
+const EXTREME_ASPECT_RATIO = 3;
+
+/**
+ * 给一个矩形增加padding
+ * @param rect
+ * @param padding
+ * @returns
+ */
+function padRectangle(rect: Rectangle, padding: number): Rectangle {
+  const padVec = new Vector(padding, padding);
+  return new Rectangle(rect.leftTop.subtract(padVec), rect.size.add(padVec.multiply(2)));
+}
+
+function getStageContentRectangle(project: Project): Rectangle | undefined {
+  const rectangles: Rectangle[] = [];
+
+  for (const entity of project.stageManager.getEntities()) {
+    if ("collisionBox" in entity && entity.collisionBox && typeof entity.collisionBox.getRectangle === "function") {
+      rectangles.push(entity.collisionBox.getRectangle());
+    }
+  }
+  for (const association of project.stageManager.getAssociations()) {
+    if (
+      "collisionBox" in association &&
+      association.collisionBox &&
+      typeof association.collisionBox.getRectangle === "function"
+    ) {
+      rectangles.push(association.collisionBox.getRectangle());
+    }
+  }
+
+  if (rectangles.length === 0) return undefined;
+  return Rectangle.getBoundingRectangle(rectangles);
+}
 
 /**
  * 为已加载的 Project 生成缩略图 PNG Blob（整个项目概览）。
@@ -10,17 +48,36 @@ const THUMBNAIL_MAX_DIMENSION = 256;
  * 如果舞台为空则返回 undefined。
  */
 export async function generateThumbnail(project: Project): Promise<Blob | undefined> {
-  const stageSize = project.stageManager.getSize();
-  const stageCenter = project.stageManager.getCenter();
-  const fullRect = new Rectangle(stageCenter.subtract(stageSize.divide(2)), stageSize);
+  const contentRect = getStageContentRectangle(project);
+  if (!contentRect) return undefined;
 
-  if (fullRect.width === 0 && fullRect.height === 0) return undefined;
+  const contentMaxDim = Math.max(contentRect.width, contentRect.height);
+  if (contentMaxDim === 0) return undefined;
+
+  const padding = Math.max(20, contentMaxDim * 0.05);
+  const paddedRect = padRectangle(contentRect, padding);
+
+  const w = paddedRect.width;
+  const h = paddedRect.height;
+  const ratio = w === 0 || h === 0 ? Infinity : Math.max(w / h, h / w);
+  const useSquare = ratio >= EXTREME_ASPECT_RATIO;
+  if (useSquare) {
+    toast.warning("此内容的外接矩形比例过于极端，开始生成正方形缩略图");
+  }
+  const squareDim = Math.max(paddedRect.width, paddedRect.height);
+
+  const rect = useSquare
+    ? new Rectangle(
+        paddedRect.center.subtract(new Vector(squareDim / 2, squareDim / 2)),
+        new Vector(squareDim, squareDim),
+      )
+    : paddedRect;
 
   // 计算缩放比例
   let scaleFactor = 1;
-  if (fullRect.width > THUMBNAIL_MAX_DIMENSION || fullRect.height > THUMBNAIL_MAX_DIMENSION) {
-    const widthRatio = THUMBNAIL_MAX_DIMENSION / fullRect.width;
-    const heightRatio = THUMBNAIL_MAX_DIMENSION / fullRect.height;
+  if (rect.width > THUMBNAIL_MAX_DIMENSION || rect.height > THUMBNAIL_MAX_DIMENSION) {
+    const widthRatio = THUMBNAIL_MAX_DIMENSION / rect.width;
+    const heightRatio = THUMBNAIL_MAX_DIMENSION / rect.height;
     scaleFactor = Math.min(widthRatio, heightRatio);
   }
 
@@ -32,13 +89,13 @@ export async function generateThumbnail(project: Project): Promise<Blob | undefi
   // 设置相机
   project.camera.currentScale = scaleFactor;
   project.camera.targetScale = scaleFactor;
-  project.camera.location = fullRect.center;
+  project.camera.location = rect.center;
 
   // 创建临时Canvas
   const tempCanvas = document.createElement("canvas");
   const deviceScale = window.devicePixelRatio;
-  const canvasWidth = Math.min(fullRect.width * scaleFactor + 2, THUMBNAIL_MAX_DIMENSION + 2);
-  const canvasHeight = Math.min(fullRect.height * scaleFactor + 2, THUMBNAIL_MAX_DIMENSION + 2);
+  const canvasWidth = Math.min(rect.width * scaleFactor + 2, THUMBNAIL_MAX_DIMENSION + 2);
+  const canvasHeight = Math.min(rect.height * scaleFactor + 2, THUMBNAIL_MAX_DIMENSION + 2);
   tempCanvas.width = canvasWidth * deviceScale;
   tempCanvas.height = canvasHeight * deviceScale;
   tempCanvas.style.width = `${canvasWidth}px`;
