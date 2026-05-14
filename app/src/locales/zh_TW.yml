@@ -44,7 +44,6 @@ globalMenu:
     exportAsPDF: 導出為 PDF
     exportAll: 導出全部內容
     plainTextType:
-      exportAllNodeGraph: 導出 全部的 網狀關係
       exportSelectedNodeGraph: 導出 選中的 網狀關係
       exportSelectedNodeTree: 導出 選中的 樹狀關係（純文本縮進）
       exportSelectedNodeTreeMarkdown: 導出 選中的 樹狀關係（Markdown格式）
@@ -170,8 +169,8 @@ settings:
       background: 背景
       node: 節點樣式
       edge: 連線樣式
-      section: “框”的樣式
-      entityDetails: 實體詳情
+      section: 分組框的樣式
+      entityDetails: 實體詳細信息
       debug: 調試
       miniWindow: 迷你窗口
       experimental: 實驗性功能
@@ -214,6 +213,11 @@ settings:
     description: |
       控制是否在界面右側顯示快捷操作欄（快捷設置欄）。
       快捷設置欄可以讓您快速切換常用設置項的開關狀態。
+  showRecentFilesThumbnails:
+    title: 最近文件面板顯示縮略圖
+    description: |
+      控制“最近打開的文件”面板中是否顯示工程文件縮略圖。
+      關閉後可減少界面干擾。
   autoAdjustLineEndpointsByMouseTrack:
     title: 根據鼠標拖動軌跡自動調整生成連線的端點位置
     description: |
@@ -229,7 +233,12 @@ settings:
     options:
       straight: 直線
       bezier: 貝塞爾曲線
-      vertical: 垂直折線
+      vertical: 垂直折線（已廢棄⚠️）
+  hideArrowWhenPointingToConnectPoint:
+    title: 連線指向質點時隱藏箭頭
+    description: |
+      開啟後，當連線的目標是質點時，不渲染箭頭，只保留線條本身。
+      對直線、貝塞爾曲線和垂直折線都生效。
   isRenderCenterPointer:
     title: 顯示中心十字準星
     description: |
@@ -284,6 +293,14 @@ settings:
     description: |
       選中文本節點時，在節點四周顯示 tab/W W/S S/A A/D D 等鍵盤樹形生長方向提示。
       關閉後不再渲染這些提示文字。
+  newNodeScaleByCamera:
+    title: 新建文本節點時，根據視野縮放等級自動設置節點大小
+    description: |
+      開啟後，創建文本節點時會根據當前視野縮放級別自動調整節點字體大小，
+      使節點在屏幕上的視覺大小保持恆定。默認關閉。
+  newNodeScaleByCameraOffset:
+    title: 新建文本節點時，根據視野縮放等級自動設置大小的級別修正偏移
+    description: 配合"根據視野自動設置節點大小"使用。正數使新建節點更大，負數使新建節點更小。
   sectionBitTitleRenderType:
     title: 框的縮略大標題渲染類型
     options:
@@ -306,7 +323,7 @@ settings:
   sectionBackgroundFillMode:
     title: 框的背景顏色填充方式
     description: |
-      控制section框的背景顏色填充方式
+      控制分組框的背景顏色填充方式
       完整填充：填充整個框的背景（默認方式，有透明度化和遮罩順序判斷）
       僅標題條：只填充頂部標題那一小條的部分
     options:
@@ -358,22 +375,6 @@ settings:
     title: 迷你窗口的高度
     description: |
       點擊切換至迷你窗口時，窗口的高度，單位為像素
-  limitCameraInCycleSpace:
-    title: 開啟循環空間限制攝像機移動
-    description: |
-      開啟後，攝像機只能在一個矩形區域內移動
-      可以防止攝像機移動到很遠的地方迷路
-      該矩形區域會形成一個循環空間，類似於無邊貪吃蛇遊戲中的地圖
-      走到最上面會回到最下面，走到最左邊會回到最右邊
-      注意：該功能還在實驗階段
-  cameraCycleSpaceSizeX:
-    title: 循環空間寬度
-    description: |
-      循環空間的寬度，單位為像素
-  cameraCycleSpaceSizeY:
-    title: 循環空間高度
-    description: |
-      循環空間的高度，單位為像素
   renderEffect:
     title: 渲染特效
     description: 是否渲染特效，如果卡頓可以關閉
@@ -439,6 +440,24 @@ settings:
       輸入`{{date}}` 會自動替換為當前日期，雙擊創建時可以自動更新日期。
       輸入`{{time}}` 會自動替換為當前時間，雙擊創建時可以自動更新時間。
       可以組合使用，例如`{{i}}-{{date}}-{{time}}`
+  autoNamerDetailsTemplate:
+    title: 創建節點時自動填入的詳細信息
+    description: |
+      創建文本節點時，自動將此內容填入節點的「詳細信息」文本框。
+      留空則不自動填入任何內容。
+      支持與標題相同的模板語法：
+      輸入`{{i}}` 會自動替換為編號（與標題保持一致）。
+      輸入`{{date}}` 會自動替換為當前日期。
+      輸入`{{time}}` 會自動替換為當前時間。
+  autoNamerTreeNodeTemplate:
+    title: Tab鍵樹形生長節點的初始名稱模板
+    description: |
+      在鍵盤模式下按Tab鍵生長新節點時，新節點的初始名稱。
+      輸入`{{i}}` 會自動替換為編號，避免名稱重複。
+      例如`Node_{{i}}` 會自動替換為`Node_0`, `Node_1`, `Node_2`…
+      輸入`{{date}}` 會自動替換為當前日期。
+      輸入`{{time}}` 會自動替換為當前時間。
+      可以組合使用，例如`Node_{{i}}-{{date}}`
   autoSaveWhenClose:
     title: 點擊窗口右上角關閉按鈕時自動保存工程文件
     description: |
@@ -486,6 +505,11 @@ settings:
     title: 自定義自動備份路徑
     description: |
       設置自動備份文件的保存路徑，如果為空則使用默認路徑
+  autoBackupCustomPath2:
+    title: 自定義自動備份路徑（第二路徑）
+    description: |
+      第一備份路徑為空或備份失敗時，將嘗試使用第二備份路徑
+      第二備份路徑也不可用時，將回退到默認路徑
   scaleExponent:
     title: 視角縮放速度
     description: |
@@ -494,6 +518,22 @@ settings:
       值為1代表縮放會立刻完成，沒有中間的過渡效果
       值為0代表縮放永遠都不會完成，可模擬鎖死效果
       注意：若您在縮放畫面時感到卡頓，請調成1
+  cameraZoomInLimitBehavior:
+    title: 放大到極限時的行為
+    description: |
+      當視野縮放放大到超過縮放上限時觸發
+    options:
+      macro: 回到宏觀
+      micro: 回到微觀的極限
+      reset: 回到標準大小（縮放級別1）
+  cameraZoomOutLimitBehavior:
+    title: 縮小到極限時的行為
+    description: |
+      當視野縮放縮小到低於縮放下限時觸發
+    options:
+      macro: 回到宏觀
+      micro: 回到微觀的極限
+      reset: 回到標準大小（縮放級別1）
   cameraKeyboardScaleRate:
     title: 視角縮放鍵盤速率
     description: |
@@ -688,6 +728,12 @@ settings:
       auto: 總是自動調整
       manual: 總是手動調整
       autoByLength: 根據長度自動調整
+  textNodeManualDefaultCharWidth:
+    title: 文本節點手動模式默認寬度（中文字符數）
+    description: |
+      當使用ttt快捷鍵切換到手動寬度模式時，文本節點的默認寬度。
+      單位為中文字符數，例如設置為10表示寬度為10箇中文字符。
+      英文字符寬度為中文字符的一半。
   textNodeAutoFormatTreeWhenExitEdit:
     title: 退出編輯模式時自動格式化樹形結構
     description: |
@@ -842,7 +888,7 @@ settings:
   packEntityToSectionSoundFile:
     title: 打包為框的聲音文件
     description: |
-      將選中的實體打包到Section框中時播放的聲音文件路徑
+      將選中的實體打包到分組框中時播放的聲音文件路徑
   treeGenerateDeepSoundFile:
     title: 樹形深度生長的聲音文件
     description: |
@@ -960,6 +1006,11 @@ settings:
     description: |
       開啟後，當按下 Ctrl/Alt/Shift/Win（Windows）或 ⌘/⌥/⇧/⌃（Mac）等修飾鍵時，會顯示匹配的快捷鍵提示。
       按住修飾鍵不放可查看第一頁快捷鍵，鬆開後再次按下可翻頁查看更多。
+  showEditModeHint:
+    title: 文本節點編輯模式提示
+    description: |
+      進入文本節點編輯模式時，在節點頂部顯示"正在編輯模式"，底部顯示換行和退出編輯的快捷鍵提示。
+      關閉後不再渲染這些提示文字。
 
 
 renderer:
@@ -1136,9 +1187,9 @@ keyBindsGroup:
     description: |
       和文本節點相關的一切快捷鍵，分割、合併、創建等
   section:
-    title: Section框
+    title: 分組框
     description: |
-      Section框相關功能
+      分組框相關功能
   leftMouseModeCheckout:
     title: 左鍵模式切換
     description: |
@@ -1219,6 +1270,11 @@ keyBinds:
     title: 打開文件
     description: |
       選擇一個曾經保存的json/prg文件並打開
+  openCurrentProjectFileFolder:
+    title: 打開當前工程文件所在文件夾
+    description: |
+      在系統文件管理器中打開當前工程文件所在的文件夾
+      當前文件為草稿時不可用
   undo:
     title: 撤銷
     description: 撤銷上一次操作
@@ -1238,11 +1294,11 @@ keyBinds:
     title: 重置縮放
     description: 將視野縮放重置為標準大小
   folderSection:
-    title: 摺疊或展開Section框
-    description: 按下後選中的Section框會切換摺疊或展開狀態
+    title: 摺疊或展開分組框
+    description: 按下後選中的分組框會切換摺疊或展開狀態
   toggleSectionLock:
-    title: 鎖定/解鎖Section框
-    description: 切換選中Section框的鎖定狀態，鎖定後內部物體不可移動
+    title: 鎖定/解鎖分組框
+    description: 切換選中分組框的鎖定狀態，鎖定後內部物體不可移動
   reverseEdges:
     title: 反轉連線的方向
     description: |
@@ -1250,30 +1306,24 @@ keyBinds:
       例如，原先是 A -> B，按下後變成 B -> A
       此功能的意義在於快速創建一個節點連向多個節點的情況
       因為目前的連線只能一次性做到多連一。
-  reverseSelectedNodeEdge:
-    title: 反轉選中的節點的所有連線的方向
-    description: |
-      按下後，所有框選選中的節點中
-      每個節點的所有連線都會反轉方向
-      進而實現更快捷的一連多
   createUndirectedEdgeFromEntities:
     title: 選中的實體之間創建無向連線
     description: |
       按下後，選中的兩個或者多個實體之間會創建一條無向連線
   packEntityToSection:
-    title: 將選中的實體打包到Section框中
+    title: 將選中的實體打包到分組框中
     description: |
-      按下後，選中的實體會自動包裹到新Section框中
+      按下後，選中的實體會自動包裹到新分組框中
   unpackEntityFromSection:
-    title: Section框拆包，轉換為文本節點
+    title: 分組框拆包，轉換為文本節點
     description: |
-      按下後，選中的Section框中的實體會被拆包，自身轉換成一個文本節點
+      按下後，選中的分組框中的實體會被拆包，自身轉換成一個文本節點
       內部的實體將會掉落在外面
   textNodeToSection:
-    title: 將選中的文本節點轉換成Section框
+    title: 將選中的文本節點轉換成分組框
     description: |
-      按下後，選中的文本節點會被轉換成Section框
-      可以用於section框的快速創建
+      按下後，選中的文本節點會被轉換成分組框
+      可以用於分組框的快速創建
   deleteSelectedStageObjects:
     title: 刪除選中的舞臺物體
     description: |
@@ -1312,10 +1362,26 @@ keyBinds:
   generateNodeGraph:
     title: 生長自由節點
     description: |
-      按下後，出現一個虛擬生長位置
-      此時，按下“I J K L”鍵自由調整生長位置
-      再次按下該鍵，退出自由生長模式
+      按住此鍵，出現一個虛擬生長位置
+      此時，按住”I J K L”鍵自由調整生長位置
+      鬆開此鍵，完成節點創建
       使用此功能前先確保已選中一個節點
+  generateNodeGraphMoveUp:
+    title: 自由生長節點——向上移動
+    description: |
+      在自由生長節點模式激活時（按住反引號鍵），按住此鍵將虛擬目標位置向上移動
+  generateNodeGraphMoveDown:
+    title: 自由生長節點——向下移動
+    description: |
+      在自由生長節點模式激活時（按住反引號鍵），按住此鍵將虛擬目標位置向下移動
+  generateNodeGraphMoveLeft:
+    title: 自由生長節點——向左移動
+    description: |
+      在自由生長節點模式激活時（按住反引號鍵），按住此鍵將虛擬目標位置向左移動
+  generateNodeGraphMoveRight:
+    title: 自由生長節點——向右移動
+    description: |
+      在自由生長節點模式激活時（按住反引號鍵），按住此鍵將虛擬目標位置向右移動
   createConnectPointWhenDragConnecting:
     title: 拖拽連線時，按下此鍵，創建質點中轉
     description: |
@@ -1335,11 +1401,6 @@ keyBinds:
     description: |
       對選中的有向無環圖（DAG）結構進行自動佈局調整
       僅當選中節點構成DAG結構時可用
-  gravityLayout:
-    title: 持續按下引力式佈局
-    description: |
-      選中一堆連線的節點群后，持續按下該鍵可以進行引力式佈局。
-      注意此鍵若想自定義，只能設置為單個非修飾鍵，否則可能有未知bug。zh
   setNodeTreeDirectionLeft:
     title: 設置當前節點的樹形生長方向為向左
     description: |
@@ -1383,6 +1444,18 @@ keyBinds:
     description: |
       將屏幕中心十字準心指向的節點添加到當前選擇中
       如果該節點已被選中，則取消選中
+  generateTreeBySelectedTextNodeTextWithAI:
+    title: AI：生成樹形結構
+    description: |
+      將選中的文本節點內容填入 AI 面板，並預置提示詞用於生成樹形節點圖
+  generateNetBySelectedTextNodeTextWithAI:
+    title: AI：生成網狀關係圖
+    description: |
+      將選中的文本節點內容填入 AI 面板，並預置提示詞用於生成網狀關係圖
+  generateSummaryBySelectedTextNodeTextWithAI:
+    title: AI：生成摘要
+    description: |
+      將選中的文本節點內容填入 AI 面板，並預置提示詞用於總結核心內容
   createTextNodeFromCameraLocation:
     title: 在視野中心位置創建文本節點
     description: |
@@ -1436,35 +1509,35 @@ keyBinds:
   moveUpSelectedEntities:
     title: 向上移動所有選中的實體
     description: |
-      按下後，所有選中的實體會向上移動一個固定距離
+      持續按住時，所有選中的實體會持續向上加速移動，鬆開後緩動停止
   moveDownSelectedEntities:
     title: 向下移動所有選中的實體
     description: |
-      按下後，所有選中的實體會向下移動一個固定距離
+      持續按住時，所有選中的實體會持續向下加速移動，鬆開後緩動停止
   moveLeftSelectedEntities:
     title: 向左移動所有選中的實體
     description: |
-      按下後，所有選中的實體會向左移動一個固定距離
+      持續按住時，所有選中的實體會持續向左加速移動，鬆開後緩動停止
   moveRightSelectedEntities:
     title: 向右移動所有選中的實體
     description: |
-      按下後，所有選中的實體會向右移動一個固定距離
+      持續按住時，所有選中的實體會持續向右加速移動，鬆開後緩動停止
   jumpMoveUpSelectedEntities:
     title: 跳躍向上移動所有選中的實體
     description: |
-      按下後，所有選中的實體會跳躍向上移動一個固定距離，能夠跳入或者跳出Section框
+      按下後，所有選中的實體會跳躍向上移動一個固定距離，能夠跳入或者跳出分組框
   jumpMoveDownSelectedEntities:
     title: 跳躍向下移動所有選中的實體
     description: |
-      按下後，所有選中的實體會跳躍向下移動一個固定距離，能夠跳入或者跳出Section框
+      按下後，所有選中的實體會跳躍向下移動一個固定距離，能夠跳入或者跳出分組框
   jumpMoveLeftSelectedEntities:
     title: 跳躍向左移動所有選中的實體
     description: |
-      按下後，所有選中的實體會跳躍向左移動一個固定距離，能夠跳入或者跳出Section框
+      按下後，所有選中的實體會跳躍向左移動一個固定距離，能夠跳入或者跳出分組框
   jumpMoveRightSelectedEntities:
     title: 跳躍向右移動所有選中的實體
     description: |
-      按下後，所有選中的實體會跳躍向右移動一個固定距離，能夠跳入或者跳出Section框
+      按下後，所有選中的實體會跳躍向右移動一個固定距離，能夠跳入或者跳出分組框
   CameraScaleZoomIn:
     title: 視野放大
     description: 按下後，視野放大
@@ -1568,6 +1641,25 @@ keyBinds:
     title: 反向擴散選擇節點（保留當前節點的選擇狀態）
     description: |
       按下後，實體的選擇狀態會轉移到父級節點上，同時保留當前節點的選擇狀態
+  CameraMoveUp:
+    title: 向上移動視野
+    description: 按下後，視野向上移動
+  CameraMoveDown:
+    title: 向下移動視野
+    description: 按下後，視野向下移動
+  CameraMoveLeft:
+    title: 向左移動視野
+    description: 按下後，視野向左移動
+  CameraMoveRight:
+    title: 向右移動視野
+    description: 按下後，視野向右移動
+  continuousShortcut:
+    title: 持續型快捷鍵
+  continuousShortcutTooltip:
+    title: 持續型快捷鍵說明
+    description: 需要持續按下，然後一小段時間鬆開才感覺到效果的快捷鍵。並且不像序列型快捷鍵那樣長度可以是一個按鍵序列。
+  resetToDefault:
+    title: 重置為默認
   checkoutLeftMouseToSelectAndMove:
     title: 設置左鍵為“選中/移動”模式
     description: |
@@ -1661,13 +1753,13 @@ keyBinds:
     title: 遞歸緊密堆積
   adjustSelectedTextNodeWidthMin:
     title: 統一寬度為最小值
-    description: 僅對文本節點生效，將所有選中節點的寬度統一為最小值
+    description: 僅對文本節點生效，將所有選中節點的寬度統一為最小值（快捷鍵：1→3→2）
   adjustSelectedTextNodeWidthMax:
     title: 統一寬度為最大值
-    description: 僅對文本節點生效，將所有選中節點的寬度統一為最大值
+    description: 僅對文本節點生效，將所有選中節點的寬度統一為最大值（快捷鍵：7→9→8）
   adjustSelectedTextNodeWidthAverage:
     title: 統一寬度為平均值
-    description: 僅對文本節點生效，將所有選中節點的寬度統一為平均值
+    description: 僅對文本節點生效，將所有選中節點的寬度統一為平均值（快捷鍵：4→6→5）
   connectAllSelectedEntities:
     title: 將所有選中實體進行全連接
     description: 用於特殊教學場景或圖論教學，“- -”開頭表示連線相關
@@ -1737,6 +1829,9 @@ keyBinds:
   swapTextAndDetails:
     title: 詳略交換
     description: 將所有選中的文本節點的詳細信息和實際內容進行交換，連按5次e，主要用於直接粘貼進來的文本內容想寫入詳細信息
+  createTwinTextNode:
+    title: 創建孿生節點
+    description: 為所有選中的文本節點分別創建孿生節點，新節點與原節點內容同步，按 Shift+Y 觸發
   reverseImageColors:
     title: 反轉圖片顏色
     description: 反轉選中圖片的顏色（將白色背景變為黑色，反之亦然）
@@ -1788,6 +1883,97 @@ keyBinds:
     description: |
       將選中的網狀結構導出為Mermaid圖表格式並複製到剪貼板
       可用於在支持Mermaid的編輯器中粘貼顯示
+  close:
+    title: 關閉
+  createMTUEdgeConvex:
+    title: 創建凸包
+  createConnectPointFromMouseLocation:
+    title: 在鼠標位置創建質點
+  openColorPaletteWindow:
+    title: 打開調色板窗口
+  cancel:
+    title: 取消
+  discard:
+    title: 放棄更改
+  save:
+    title: 保存
+  copySelectedImageToClipboard:
+    title: 複製選中圖片到剪貼板
+  swapSelectedImageRedBlueChannels:
+    title: 交換選中圖片的紅藍通道
+  setSelectedImageAsBackground:
+    title: 設置為背景圖片
+  unsetSelectedImageAsBackground:
+    title: 取消背景圖片設置
+  saveSelectedImagesToProjectDirectory:
+    title: 保存選中圖片到工程目錄
+  resetPenStrokeColor:
+    title: 重置塗鴉顏色
+  setSelectedEdgesToDouble:
+    title: 設置選中連線為雙線
+  switchEdgeToUndirectedEdge:
+    title: 將有向連線轉化為無向連線
+  switchUndirectedEdgeToEdge:
+    title: 將無向連線轉化為有向連線
+  setSelectedEdgeSourceConnectLocationUp:
+    title: 設置起點連接位置為上方
+  setSelectedEdgeSourceConnectLocationLeft:
+    title: 設置起點連接位置為左方
+  setSelectedEdgeSourceConnectLocationCenter:
+    title: 設置起點連接位置為中心
+  setSelectedEdgeSourceConnectLocationRight:
+    title: 設置起點連接位置為右方
+  setSelectedEdgeSourceConnectLocationDown:
+    title: 設置起點連接位置為下方
+  setSelectedEdgeTargetConnectLocationUp:
+    title: 設置終點連接位置為上方
+  setSelectedEdgeTargetConnectLocationLeft:
+    title: 設置終點連接位置為左方
+  setSelectedEdgeTargetConnectLocationCenter:
+    title: 設置終點連接位置為中心
+  setSelectedEdgeTargetConnectLocationRight:
+    title: 設置終點連接位置為右方
+  setSelectedEdgeTargetConnectLocationDown:
+    title: 設置終點連接位置為下方
+  setMTUEdgeArrowOuter:
+    title: 設置多端點連線箭頭朝外
+  setMTUEdgeArrowInner:
+    title: 設置多端點連線箭頭朝內
+  setMTUEdgeArrowNone:
+    title: 隱藏多端點連線箭頭
+  switchMTUEdgeRenderType:
+    title: 切換多端點連線渲染類型
+    description: 切換多端點連線在舞臺上的顯示樣式
+  resetMTUEdgeEndpointLocations:
+    title: 重置多端點連線的端點位置
+    description: 將多端點連線的各個端點恢復到默認分佈
+  resetSelectedStageObjectColor:
+    title: 重置顏色
+    description: 重置選中物體的顏色到默認狀態
+  setSelectedStageObjectSpecialTransparentColor:
+    title: 設置為特殊透明色
+    description: 將選中的物體設置為特殊的完全透明顏色
+  changeTextNodeToReferenceBlock:
+    title: 轉換為引用塊
+    description: 將普通的文本節點轉換為對特定節點的引用
+  refreshReferenceBlockNode:
+    title: 刷新引用塊
+    description: 重新獲取引用塊的內容
+  goToReferenceBlockSource:
+    title: 跳轉到引用塊來源
+    description: 視野中心移動到引用塊指向的原節點
+  switchStealthMode:
+    title: 切換潛行模式
+    description: 在中心顯示遮罩，用於記憶力訓練
+  removeFirstCharFromSelectedTextNodes:
+    title: 首字消除
+    description: 移除所有選中文本節點的第一個字符
+  removeLastCharFromSelectedTextNodes:
+    title: 末字消除
+    description: 移除所有選中文本節點的最後一個字符
+  swapTwoSelectedEntitiesPositions:
+    title: 交換位置
+    description: 交換兩個選中實體的位置
 
 sounds:
   soundEnabled: 音效開關

@@ -2,18 +2,19 @@ import { CircleFlameEffect } from "@/core/service/feedbackService/effectEngine/c
 import { LineCuttingEffect } from "@/core/service/feedbackService/effectEngine/concrete/LineCuttingEffect";
 import { Effect } from "@/core/service/feedbackService/effectEngine/effectObject";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
+import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { Color, ProgressNumber, Vector } from "@graphif/data-structures";
 import { CubicBezierCurve, Line, SymmetryCurve } from "@graphif/shapes";
 // import { ConnectPoint } from "@/core/stage/stageObject/entity/ConnectPoint";
 import { Project, service } from "@/core/Project";
 import { EdgeRendererClass } from "@/core/render/canvas2d/entityRenderer/edge/EdgeRendererClass";
-import { Renderer } from "@/core/render/canvas2d/renderer";
 import { SvgUtils } from "@/core/render/svg/SvgUtils";
 import { Settings } from "@/core/service/Settings";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { ConnectPoint } from "@/core/stage/stageObject/entity/ConnectPoint";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
+import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 
 /**
  * 贝塞尔曲线
@@ -22,6 +23,10 @@ import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
   constructor(private readonly project: Project) {
     super();
+  }
+
+  private shouldRenderTargetArrow(edge: LineEdge): boolean {
+    return !(Settings.hideArrowWhenPointingToConnectPoint && edge.target instanceof ConnectPoint);
   }
 
   getCuttingEffects(edge: LineEdge): Effect[] {
@@ -55,15 +60,7 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
     const sourceRate = sourceRectangleRate ?? Vector.same(0.5);
     const targetRate = targetRectangleRate ?? Vector.same(0.5);
 
-    const isOldDefaultRate = (r: Vector): boolean => {
-      return (
-        (r.x === 0.5 && r.y === 0.5) ||
-        (r.x === 0.01 && r.y === 0.5) ||
-        (r.x === 0.99 && r.y === 0.5) ||
-        (r.x === 0.5 && r.y === 0.01) ||
-        (r.x === 0.5 && r.y === 0.99)
-      );
-    };
+    const isCenterRate = (r: Vector): boolean => r.x === 0.5 && r.y === 0.5;
 
     const sourceRect = startNode.collisionBox.getRectangle();
     const targetRect = toNode.collisionBox.getRectangle();
@@ -74,11 +71,8 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
     let start: Vector;
     if (startNode instanceof ConnectPoint) {
       start = startNode.geometryCenter;
-    } else if (
-      (startNode instanceof ImageNode || startNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(sourceRate)
-    ) {
-      start = sourceInner;
+    } else if (!isCenterRate(sourceRate)) {
+      start = Edge.getExactEdgePositionByRate(sourceRect, sourceRate) ?? sourceInner;
     } else {
       start = sourceRect.getLineIntersectionPoint(line);
     }
@@ -86,11 +80,8 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
     let end: Vector;
     if (toNode instanceof ConnectPoint) {
       end = toNode.geometryCenter;
-    } else if (
-      (toNode instanceof ImageNode || toNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(targetRate)
-    ) {
-      end = targetInner;
+    } else if (!isCenterRate(targetRate)) {
+      end = Edge.getExactEdgePositionByRate(targetRect, targetRate) ?? targetInner;
     } else {
       end = targetRect.getLineIntersectionPoint(line);
     }
@@ -119,44 +110,54 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
     let endDirection: Vector;
 
     if (edge.source instanceof ConnectPoint) {
-      startDirection = Vector.getZero();
-    } else {
-      const sourceRect = edge.source.collisionBox.getRectangle();
-      // 检查是否是图片或引用块节点的精确位置（不在边缘上）
-      const isSourceExactPosition =
-        (edge.source instanceof ImageNode || edge.source.constructor.name === "ReferenceBlockNode") &&
-        start.x !== sourceRect.left &&
-        start.x !== sourceRect.right &&
-        start.y !== sourceRect.top &&
-        start.y !== sourceRect.bottom;
-
-      if (isSourceExactPosition) {
-        // 对于图片或引用块节点的精确位置，使用连线方向作为法线向量
-        startDirection = lineDirection;
+      const byRate = Edge.getNormalVectorByRate(edge.sourceRectangleRate);
+      if (byRate !== null) {
+        startDirection = byRate;
       } else {
-        // 否则使用矩形边缘的法线向量
-        startDirection = sourceRect.getNormalVectorAt(start);
+        const center = edge.source.geometryCenter;
+        const radial = start.subtract(center);
+        startDirection = radial.magnitude() === 0 ? lineDirection : radial.normalize();
+      }
+    } else {
+      const fromRate = Edge.getNormalVectorByRate(edge.sourceRectangleRate);
+      if (fromRate !== null) {
+        startDirection = fromRate;
+      } else {
+        // Center rate or image node interior: use intersection point's rect-edge normal,
+        // falling back to line direction for interior image positions.
+        const sourceRect = edge.source.collisionBox.getRectangle();
+        const isSourceExactPosition =
+          (edge.source instanceof ImageNode || edge.source.constructor.name === "ReferenceBlockNode") &&
+          start.x !== sourceRect.left &&
+          start.x !== sourceRect.right &&
+          start.y !== sourceRect.top &&
+          start.y !== sourceRect.bottom;
+        startDirection = isSourceExactPosition ? lineDirection : sourceRect.getNormalVectorAt(start);
       }
     }
 
     if (edge.target instanceof ConnectPoint) {
-      endDirection = Vector.getZero();
-    } else {
-      const targetRect = edge.target.collisionBox.getRectangle();
-      // 检查是否是图片或引用块节点的精确位置（不在边缘上）
-      const isTargetExactPosition =
-        (edge.target instanceof ImageNode || edge.target.constructor.name === "ReferenceBlockNode") &&
-        end.x !== targetRect.left &&
-        end.x !== targetRect.right &&
-        end.y !== targetRect.top &&
-        end.y !== targetRect.bottom;
-
-      if (isTargetExactPosition) {
-        // 对于图片或引用块节点的精确位置，使用连线方向的反方向作为法线向量
-        endDirection = lineDirection.multiply(-1);
+      const byRate = Edge.getNormalVectorByRate(edge.targetRectangleRate);
+      if (byRate !== null) {
+        endDirection = byRate;
       } else {
-        // 否则使用矩形边缘的法线向量
-        endDirection = targetRect.getNormalVectorAt(end);
+        const center = edge.target.geometryCenter;
+        const radial = end.subtract(center);
+        endDirection = radial.magnitude() === 0 ? lineDirection.multiply(-1) : radial.normalize();
+      }
+    } else {
+      const toRate = Edge.getNormalVectorByRate(edge.targetRectangleRate);
+      if (toRate !== null) {
+        endDirection = toRate;
+      } else {
+        const targetRect = edge.target.collisionBox.getRectangle();
+        const isTargetExactPosition =
+          (edge.target instanceof ImageNode || edge.target.constructor.name === "ReferenceBlockNode") &&
+          end.x !== targetRect.left &&
+          end.x !== targetRect.right &&
+          end.y !== targetRect.top &&
+          end.y !== targetRect.bottom;
+        endDirection = isTargetExactPosition ? lineDirection.multiply(-1) : targetRect.getNormalVectorAt(end);
       }
     }
 
@@ -168,6 +169,8 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
         Math.min(Math.max(rect1.width, rect1.height), Math.max(rect2.width, rect2.height)) / 100,
         100,
       );
+    } else if (edge.source instanceof TextNode) {
+      edgeWidth = edge.source.getBorderWidth();
     }
 
     const curve = new SymmetryCurve(
@@ -175,7 +178,7 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
       startDirection,
       end,
       endDirection,
-      Math.max(50, Math.abs(Math.min(Math.abs(start.x - end.x), Math.abs(start.y - end.y))) / 2),
+      Math.max(edgeWidth * 25, Math.abs(Math.min(Math.abs(start.x - end.x), Math.abs(start.y - end.y))) / 2),
     );
 
     // 曲线模式先不屏蔽箭头，有点不美观，空出来一段距离
@@ -256,13 +259,12 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
       this.project.renderer.transformWorld2View(
         edge.target.collisionBox.getRectangle().location.add(new Vector(0, -50)),
       ),
-      Renderer.FONT_SIZE * this.project.camera.currentScale,
+      edge.textFontSize * this.project.camera.currentScale,
       Infinity,
       edgeColor,
     );
   }
   public getNormalStageSvg(edge: LineEdge): React.ReactNode {
-    let lineBody: React.ReactNode = <></>;
     let textNode: React.ReactNode = <></>;
     const edgeColor = edge.color.equals(Color.Transparent)
       ? this.project.stageStyleManager.currentStyle.StageObjectBorder
@@ -280,37 +282,49 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
     if (edge.source instanceof ConnectPoint) {
       startDirection = Vector.getZero();
     } else {
-      const sourceRect = edge.source.collisionBox.getRectangle();
-      const isSourceExactPosition =
-        (edge.source instanceof ImageNode || edge.source.constructor.name === "ReferenceBlockNode") &&
-        start.x !== sourceRect.left &&
-        start.x !== sourceRect.right &&
-        start.y !== sourceRect.top &&
-        start.y !== sourceRect.bottom;
-
-      if (isSourceExactPosition) {
-        startDirection = lineDirection;
+      const fromRate = Edge.getNormalVectorByRate(edge.sourceRectangleRate);
+      if (fromRate !== null) {
+        startDirection = fromRate;
       } else {
-        startDirection = sourceRect.getNormalVectorAt(start);
+        const sourceRect = edge.source.collisionBox.getRectangle();
+        const isSourceExactPosition =
+          (edge.source instanceof ImageNode || edge.source.constructor.name === "ReferenceBlockNode") &&
+          start.x !== sourceRect.left &&
+          start.x !== sourceRect.right &&
+          start.y !== sourceRect.top &&
+          start.y !== sourceRect.bottom;
+        startDirection = isSourceExactPosition ? lineDirection : sourceRect.getNormalVectorAt(start);
       }
     }
 
     if (edge.target instanceof ConnectPoint) {
       endDirection = Vector.getZero();
     } else {
-      const targetRect = edge.target.collisionBox.getRectangle();
-      const isTargetExactPosition =
-        (edge.target instanceof ImageNode || edge.target.constructor.name === "ReferenceBlockNode") &&
-        end.x !== targetRect.left &&
-        end.x !== targetRect.right &&
-        end.y !== targetRect.top &&
-        end.y !== targetRect.bottom;
-
-      if (isTargetExactPosition) {
-        endDirection = lineDirection.multiply(-1);
+      const toRate = Edge.getNormalVectorByRate(edge.targetRectangleRate);
+      if (toRate !== null) {
+        endDirection = toRate;
       } else {
-        endDirection = targetRect.getNormalVectorAt(end);
+        const targetRect = edge.target.collisionBox.getRectangle();
+        const isTargetExactPosition =
+          (edge.target instanceof ImageNode || edge.target.constructor.name === "ReferenceBlockNode") &&
+          end.x !== targetRect.left &&
+          end.x !== targetRect.right &&
+          end.y !== targetRect.top &&
+          end.y !== targetRect.bottom;
+        endDirection = isTargetExactPosition ? lineDirection.multiply(-1) : targetRect.getNormalVectorAt(end);
       }
+    }
+
+    let svgEdgeWidth = 2;
+    if (Settings.enableAutoEdgeWidth && edge.target instanceof Section && edge.source instanceof Section) {
+      const rect1 = edge.source.collisionBox.getRectangle();
+      const rect2 = edge.target.collisionBox.getRectangle();
+      svgEdgeWidth = Math.min(
+        Math.min(Math.max(rect1.width, rect1.height), Math.max(rect2.width, rect2.height)) / 100,
+        100,
+      );
+    } else if (edge.source instanceof TextNode) {
+      svgEdgeWidth = edge.source.getBorderWidth();
     }
 
     const curve = new SymmetryCurve(
@@ -318,76 +332,39 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
       startDirection,
       end,
       endDirection,
-      Math.max(50, Math.abs(Math.min(Math.abs(start.x - end.x), Math.abs(start.y - end.y))) / 2),
+      Math.max(svgEdgeWidth * 25, Math.abs(Math.min(Math.abs(start.x - end.x), Math.abs(start.y - end.y))) / 2),
     );
 
     const bezier = curve.bezier;
 
-    // 箭头大小
-    const arrowSize = 15;
+    // 箭头大小与线宽对应（和 renderArrowCurve 保持一致）
+    const arrowSize = 8 * svgEdgeWidth;
     // curve.endDirection 是从节点指向曲线的方向（外侧方向）
     const curveEndDirection = curve.endDirection.normalize();
-    // 原始交点（节点边缘）
-    const curveEnd = end.clone();
-    // 箭头尖端位置（稍微向外偏移，与渲染时一致）
-    const arrowTip = curveEnd.add(curveEndDirection.multiply(2));
+    // 箭头尖端精确落在节点边缘
+    const arrowTip = end.clone();
     // 曲线终点应该在箭头尾部
     // 箭头尾部距离箭头尖端是 arrowSize/2，方向是外侧方向
     const adjustedEnd = arrowTip.add(curveEndDirection.multiply(arrowSize / 2));
 
-    if (edge.text.trim() === "") {
-      // 没有文字的边
-      // 使用调整后的终点创建贝塞尔曲线
-      const adjustedBezier = new CubicBezierCurve(bezier.start, bezier.ctrlPt1, bezier.ctrlPt2, adjustedEnd);
-      lineBody = SvgUtils.bezierCurve(adjustedBezier, edgeColor, 2);
-    } else {
-      // 有文字的边
+    const adjustedBezier = new CubicBezierCurve(bezier.start, bezier.ctrlPt1, bezier.ctrlPt2, adjustedEnd);
+    const lineBody = SvgUtils.bezierCurve(adjustedBezier, edgeColor, 2);
+
+    if (edge.text.trim() !== "") {
       const midPoint = bezier.getPointByT(0.5);
-      const edgeTextRectangle = edge.textRectangle;
-
-      textNode = SvgUtils.textFromCenter(edge.text, midPoint, Renderer.FONT_SIZE, edgeColor);
-
-      // 计算文字矩形与贝塞尔曲线的交点
-      const startToMid = new Line(start, midPoint);
-      const adjustedEndToMid = new Line(adjustedEnd, midPoint);
-      const startIntersection = edgeTextRectangle.getLineIntersectionPoint(startToMid);
-      const endIntersection = edgeTextRectangle.getLineIntersectionPoint(adjustedEndToMid);
-
-      // 创建两段贝塞尔曲线
-      const startCurve = new CubicBezierCurve(
-        start,
-        bezier.ctrlPt1,
-        new Vector(
-          bezier.ctrlPt1.x + (bezier.ctrlPt2.x - bezier.ctrlPt1.x) * 0.5,
-          bezier.ctrlPt1.y + (bezier.ctrlPt2.y - bezier.ctrlPt1.y) * 0.5,
-        ),
-        startIntersection,
-      );
-      const endCurve = new CubicBezierCurve(
-        endIntersection,
-        new Vector(
-          bezier.ctrlPt1.x + (bezier.ctrlPt2.x - bezier.ctrlPt1.x) * 0.5,
-          bezier.ctrlPt1.y + (bezier.ctrlPt2.y - bezier.ctrlPt1.y) * 0.5,
-        ),
-        bezier.ctrlPt2,
-        adjustedEnd,
-      );
-
-      lineBody = (
-        <>
-          {SvgUtils.bezierCurve(startCurve, edgeColor, 2)}
-          {SvgUtils.bezierCurve(endCurve, edgeColor, 2)}
-        </>
+      textNode = SvgUtils.textFromCenterWithStroke(
+        edge.text,
+        midPoint,
+        edge.textFontSize,
+        edgeColor,
+        this.project.stageStyleManager.currentStyle.Background,
       );
     }
 
     // 加箭头（箭头尖端在 arrowTip，方向指向节点）
-    const arrowHead = this.project.edgeRenderer.generateArrowHeadSvg(
-      arrowTip,
-      curveEndDirection.multiply(-1),
-      arrowSize,
-      edgeColor,
-    );
+    const arrowHead = this.shouldRenderTargetArrow(edge)
+      ? this.project.edgeRenderer.generateArrowHeadSvg(arrowTip, curveEndDirection.multiply(-1), arrowSize, edgeColor)
+      : null;
     return (
       <>
         {lineBody}
@@ -406,23 +383,13 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
     const rect = startNode.collisionBox.getRectangle();
     const rate = sourceRectangleRate ?? Vector.same(0.5);
 
-    const isOldDefaultRate = (r: Vector): boolean => {
-      return (
-        (r.x === 0.5 && r.y === 0.5) ||
-        (r.x === 0.01 && r.y === 0.5) ||
-        (r.x === 0.99 && r.y === 0.5) ||
-        (r.x === 0.5 && r.y === 0.01) ||
-        (r.x === 0.5 && r.y === 0.99)
-      );
-    };
+    const isCenterRate = (r: Vector): boolean => r.x === 0.5 && r.y === 0.5;
 
     const startInner = rect.getInnerLocationByRateVector(rate);
-    const isStartExactPosition =
-      (startNode instanceof ImageNode || startNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(rate);
+    const isStartExactPosition = !isCenterRate(rate);
 
     const start = isStartExactPosition
-      ? startInner
+      ? (Edge.getExactEdgePositionByRate(rect, rate) ?? startInner)
       : rect.getLineIntersectionPoint(new Line(startInner, mouseLocation));
     const end = mouseLocation;
     const direction = end.subtract(start);
@@ -432,7 +399,9 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
     )
       .normalize()
       .multiply(-1);
-    const startDirection = isStartExactPosition ? direction.normalize() : rect.getNormalVectorAt(start);
+    const startDirection =
+      Edge.getNormalVectorByRate(rate) ??
+      (isStartExactPosition ? direction.normalize() : rect.getNormalVectorAt(start));
     this.renderArrowCurve(
       new SymmetryCurve(start, startDirection, end, endDirection, Math.abs(end.subtract(start).magnitude()) / 2),
       this.project.stageStyleManager.currentStyle.StageObjectBorder,
@@ -450,33 +419,29 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
     const sourceRate = sourceRectangleRate ?? Vector.same(0.5);
     const targetRate = targetRectangleRate ?? Vector.same(0.5);
 
-    const isOldDefaultRate = (r: Vector): boolean => {
-      return (
-        (r.x === 0.5 && r.y === 0.5) ||
-        (r.x === 0.01 && r.y === 0.5) ||
-        (r.x === 0.99 && r.y === 0.5) ||
-        (r.x === 0.5 && r.y === 0.01) ||
-        (r.x === 0.5 && r.y === 0.99)
-      );
-    };
+    const isCenterRate = (r: Vector): boolean => r.x === 0.5 && r.y === 0.5;
 
     const startInner = startRect.getInnerLocationByRateVector(sourceRate);
     const endInner = endRect.getInnerLocationByRateVector(targetRate);
     const line = new Line(startInner, endInner);
 
-    const isStartExactPosition =
-      (startNode instanceof ImageNode || startNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(sourceRate);
-    const isEndExactPosition =
-      (endNode instanceof ImageNode || endNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(targetRate);
+    const isStartExactPosition = !isCenterRate(sourceRate);
+    const isEndExactPosition = !isCenterRate(targetRate);
 
-    const start = isStartExactPosition ? startInner : startRect.getLineIntersectionPoint(line);
-    const end = isEndExactPosition ? endInner : endRect.getLineIntersectionPoint(line);
+    const start = isStartExactPosition
+      ? (Edge.getExactEdgePositionByRate(startRect, sourceRate) ?? startInner)
+      : startRect.getLineIntersectionPoint(line);
+    const end = isEndExactPosition
+      ? (Edge.getExactEdgePositionByRate(endRect, targetRate) ?? endInner)
+      : endRect.getLineIntersectionPoint(line);
 
     const lineDirection = end.subtract(start).normalize();
-    const startDirection = isStartExactPosition ? lineDirection : startRect.getNormalVectorAt(start);
-    const endDirection = isEndExactPosition ? lineDirection.multiply(-1) : endRect.getNormalVectorAt(end);
+    const startDirection =
+      Edge.getNormalVectorByRate(sourceRate) ??
+      (isStartExactPosition ? lineDirection : startRect.getNormalVectorAt(start));
+    const endDirection =
+      Edge.getNormalVectorByRate(targetRate) ??
+      (isEndExactPosition ? lineDirection.multiply(-1) : endRect.getNormalVectorAt(end));
 
     this.renderArrowCurve(
       new SymmetryCurve(start, startDirection, end, endDirection, Math.abs(end.subtract(start).magnitude()) / 2),
@@ -524,11 +489,12 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
         5 * this.project.camera.currentScale,
       );
     } else {
-      this.project.worldRenderUtils.renderSymmetryCurve(curve, color, width);
+      this.project.worldRenderUtils.renderSymmetryCurve(curve, color, width * this.project.camera.currentScale);
     }
     // 画箭头
-    const endPoint = end.add(curve.endDirection.multiply(2));
-    this.project.edgeRenderer.renderArrowHead(endPoint, curve.endDirection.multiply(-1), size, color);
+    if (!edge || this.shouldRenderTargetArrow(edge)) {
+      this.project.edgeRenderer.renderArrowHead(end, curve.endDirection.multiply(-1), size, color);
+    }
 
     if (Settings.showDebug) {
       const controlPoint1 = curve.bezier.ctrlPt1;
@@ -580,20 +546,12 @@ export class SymmetryCurveEdgeRenderer extends EdgeRendererClass {
     if (edge.text.trim() === "") {
       return;
     }
-    // 画文本底色
-    this.project.shapeRenderer.renderRect(
-      this.project.renderer.transformWorld2View(edge.textRectangle),
-      this.project.stageStyleManager.currentStyle.Background.toNewAlpha(Settings.windowBackgroundAlpha),
-      Color.Transparent,
-      1,
-    );
-
-    this.project.textRenderer.renderMultiLineTextFromCenter(
+    this.project.textRenderer.renderMultiLineTextFromCenterWithStroke(
       edge.text,
       this.project.renderer.transformWorld2View(curve.bezier.getPointByT(0.5)),
-      Renderer.FONT_SIZE * this.project.camera.currentScale,
-      Infinity,
+      edge.textFontSize * this.project.camera.currentScale,
       edge.color.equals(Color.Transparent) ? this.project.stageStyleManager.currentStyle.StageObjectBorder : edge.color,
+      this.project.stageStyleManager.currentStyle.Background,
     );
   }
 }

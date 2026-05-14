@@ -12,10 +12,12 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar";
 
+import { Extension } from "@/core/extension/Extension";
 import { loadAllServicesAfterInit, loadAllServicesBeforeInit } from "@/core/loadAllServices";
 import { Project, ProjectState } from "@/core/Project";
-import { showTreeValidationErrors } from "@/utils/treeValidation";
-import { activeProjectAtom, isClassroomModeAtom, isDevAtom, projectsAtom, store } from "@/state";
+import { TabFactory } from "@/core/TabFactory";
+import { TestTab } from "@/core/TestTab";
+import { activeTabAtom, isClassroomModeAtom, isDevAtom, store, tabsAtom } from "@/state";
 import AIToolsWindow from "@/sub/AIToolsWindow";
 import AIWindow from "@/sub/AIWindow";
 import AttachmentsWindow from "@/sub/AttachmentsWindow";
@@ -38,18 +40,23 @@ import SettingsWindow from "@/sub/SettingsWindow";
 import TagWindow from "@/sub/TagWindow";
 import TestWindow from "@/sub/TestWindow";
 import UserWindow from "@/sub/UserWindow";
+import { openTextImportWindow } from "@/sub/TextImportWindow";
 import { getDeviceId } from "@/utils/otherApi";
 import { PathString } from "@/utils/pathString";
+import { isMac } from "@/utils/platform";
+import { ensurePrgThumbnailCached } from "@/utils/readPrgThumbnail";
+import { showTreeValidationErrors } from "@/utils/treeValidation";
 import { Color, Vector } from "@graphif/data-structures";
 import { deserialize, serialize } from "@graphif/serializer";
 import { Rectangle } from "@graphif/shapes";
-import { Decoder } from "@msgpack/msgpack";
+import { Decoder, Encoder } from "@msgpack/msgpack";
 import { getVersion } from "@tauri-apps/api/app";
 import { appCacheDir, dataDir, join, tempDir } from "@tauri-apps/api/path";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { exists, readFile, writeFile } from "@tauri-apps/plugin-fs";
+import { exists, mkdir, readFile, writeFile } from "@tauri-apps/plugin-fs";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
+import { Uint8ArrayReader, Uint8ArrayWriter, ZipWriter } from "@zip.js/zip.js";
 import { useAtom } from "jotai";
 import {
   Airplay,
@@ -81,6 +88,7 @@ import {
   FileOutput,
   FilePlus,
   FileSpreadsheet,
+  FileText,
   FolderClock,
   FolderCog,
   FolderOpen,
@@ -130,12 +138,15 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { URI } from "vscode-uri";
+import { FileSystemProviderDraft } from "../fileSystemProvider/FileSystemProviderDraft";
+import { FileSystemProviderFile } from "../fileSystemProvider/FileSystemProviderFile";
 import { ProjectUpgrader } from "../stage/ProjectUpgrader";
 import { Entity } from "../stage/stageObject/abstract/StageEntity";
 import { LineEdge } from "../stage/stageObject/association/LineEdge";
 import { CollisionBox } from "../stage/stageObject/collisionBox/collisionBox";
 import { TextNode } from "../stage/stageObject/entity/TextNode";
 import { AssetsRepository } from "./AssetsRepository";
+import { KeyBindsUI } from "./controlService/shortcutKeysEngine/KeyBindsUI";
 import { useKeyBind } from "./controlService/shortcutKeysEngine/useKeyBind";
 import { RecentFileManager } from "./dataFileService/RecentFileManager";
 import { generateKeyboardLayout } from "./dataGenerateService/generateFromFolderEngine/GenerateFromFolderEngine";
@@ -144,7 +155,6 @@ import { FeatureFlags } from "./FeatureFlags";
 import { Settings } from "./Settings";
 import { SubWindow } from "./SubWindow";
 import { Telemetry } from "./Telemetry";
-import { KeyBindsUI } from "./controlService/shortcutKeysEngine/KeyBindsUI";
 
 const Content = MenubarContent;
 const Item = MenubarItem;
@@ -156,8 +166,9 @@ const SubTrigger = MenubarSubTrigger;
 const Trigger = MenubarTrigger;
 
 export function GlobalMenu() {
-  // const [projects, setProjects] = useAtom(projectsAtom);
-  const [activeProject] = useAtom(activeProjectAtom);
+  // const [projects, setProjects] = useAtom(tabsAtom);
+  const [tab] = useAtom(activeTabAtom);
+  const activeProject = tab instanceof Project ? tab : undefined;
   const [isClassroomMode, setIsClassroomMode] = useAtom(isClassroomModeAtom);
   const [recentFiles, setRecentFiles] = useState<RecentFileManager.RecentFile[]>([]);
   const [version, setVersion] = useState<string>("");
@@ -175,6 +186,7 @@ export function GlobalMenu() {
   const newDraftKey = useKeyBind("newDraft");
   const openFileKey = useKeyBind("openFile");
   const saveFileKey = useKeyBind("saveFile");
+  const openCurrentProjectFileFolderKey = useKeyBind("openCurrentProjectFileFolder");
   // 操作快捷键
   const searchTextKey = useKeyBind("searchText");
   const undoKey = useKeyBind("undo");
@@ -249,18 +261,25 @@ export function GlobalMenu() {
             }}
           >
             <FolderOpen />
-            {t("file.open")} （.prg / .json）
+            {t("file.open")} （.prg）
             {openFileKey && <MenubarShortcut>{openFileKey}</MenubarShortcut>}
           </Item>
           <Item
-            disabled={!activeProject || activeProject.isDraft}
             onClick={async () => {
-              const path = await join(activeProject!.uri.fsPath, "..");
-              await shellOpen(path);
+              await onUpgradeOldJson();
+              await refresh();
             }}
+          >
+            <FileInput />
+            升级旧版 json 文件为 .prg
+          </Item>
+          <Item
+            disabled={!activeProject || activeProject.isDraft}
+            onClick={() => openCurrentProjectFolder(activeProject!)}
           >
             <FolderOpen />
             打开当前工程文件所在文件夹
+            {openCurrentProjectFileFolderKey && <MenubarShortcut>{openCurrentProjectFileFolderKey}</MenubarShortcut>}
           </Item>
           <Sub>
             <SubTrigger
@@ -310,7 +329,7 @@ export function GlobalMenu() {
             }}
           >
             <LayoutGrid />
-            查看全部历史文件
+            最近打开的文件（全部）
             {clickAppMenuRecentFileButtonKey && <MenubarShortcut>{clickAppMenuRecentFileButtonKey}</MenubarShortcut>}
           </Item>
           <Separator />
@@ -474,6 +493,15 @@ export function GlobalMenu() {
                 <Images />
                 导入SVG图片
               </Item>
+              <Item
+                disabled={!activeProject}
+                onClick={() => {
+                  openTextImportWindow();
+                }}
+              >
+                <FileText />
+                导入文本文件
+              </Item>
               <Separator />
               <Item disabled className="text-sm">
                 更多导入请访问 顶部导航栏 -
@@ -562,21 +590,6 @@ export function GlobalMenu() {
                   {t("file.plainText")}
                 </SubTrigger>
                 <SubContent>
-                  {/* 导出 全部 网状关系 */}
-                  <Item
-                    onClick={() => {
-                      if (!activeProject) {
-                        toast.warning(t("file.noProject"));
-                        return;
-                      }
-                      const entities = activeProject.stageManager.getEntities();
-                      const result = activeProject.stageExport.getPlainTextByEntities(entities);
-                      Dialog.copy(t("file.exportSuccess"), "", result);
-                    }}
-                  >
-                    <VectorSquare />
-                    {t("file.plainTextType.exportAllNodeGraph")}
-                  </Item>
                   {/* 导出 选中 网状关系 */}
                   <Item
                     onClick={() => {
@@ -1023,6 +1036,32 @@ export function GlobalMenu() {
               </Item>
               <Item
                 onClick={() => {
+                  Dialog.input("设置创建节点时自动填入的详细信息", "留空则不填入任何内容", {
+                    defaultValue: Settings.autoNamerDetailsTemplate,
+                  }).then((result) => {
+                    if (result === undefined) return;
+                    Settings.autoNamerDetailsTemplate = result;
+                  });
+                }}
+              >
+                <span>创建节点时自动填入详细信息：</span>
+                <span>{Settings.autoNamerDetailsTemplate || "（空）"}</span>
+              </Item>
+              <Item
+                onClick={() => {
+                  Dialog.input("设置Tab键生长节点时的初始名称", "填入参数写法详见设置页面", {
+                    defaultValue: Settings.autoNamerTreeNodeTemplate,
+                  }).then((result) => {
+                    if (!result) return;
+                    Settings.autoNamerTreeNodeTemplate = result;
+                  });
+                }}
+              >
+                <span>Tab键生长节点的初始名称：</span>
+                <span>{Settings.autoNamerTreeNodeTemplate}</span>
+              </Item>
+              <Item
+                onClick={() => {
                   Dialog.confirm("确认改变？", Settings.autoFillNodeColorEnable ? "即将关闭" : "即将开启").then(() => {
                     Settings.autoFillNodeColorEnable = !Settings.autoFillNodeColorEnable;
                   });
@@ -1096,6 +1135,18 @@ export function GlobalMenu() {
           >
             <FolderCog />
             打开软件配置信息文件夹
+          </Item>
+          <Item
+            onClick={async () => {
+              const path = await join(await appCacheDir());
+              if (!(await exists(path))) {
+                await mkdir(path, { recursive: true });
+              }
+              await shellOpen(path);
+            }}
+          >
+            <FolderOpen />
+            打开软件缓存文件夹
           </Item>
         </Content>
       </Menu>
@@ -1569,6 +1620,16 @@ export function GlobalMenu() {
                 </Sub>
                 <Item onClick={() => NodeDetailsWindow.open()}>plate</Item>
                 <Item
+                  onClick={async () => {
+                    const testTab = new TestTab();
+                    await testTab.init();
+                    store.set(tabsAtom, [...store.get(tabsAtom), testTab]);
+                    store.set(activeTabAtom, testTab);
+                  }}
+                >
+                  创建 TestTab
+                </Item>
+                <Item
                   onClick={() => {
                     console.log(activeProject!.stage);
                   }}
@@ -1584,6 +1645,47 @@ export function GlobalMenu() {
                   }}
                 >
                   输出选中节点的详细信息
+                </Item>
+                <Item
+                  onClick={async () => {
+                    const metadata = {
+                      version: "2.0.0",
+                      extension: {
+                        id: "com.example.hello-world",
+                        name: "示例扩展",
+                        description: "这是一个用于演示的示例扩展包",
+                        version: "1.0.0",
+                        author: "Author <author@example.com>",
+                      },
+                    };
+                    const encoder = new Encoder();
+                    const uwriter = new Uint8ArrayWriter();
+                    const writer = new ZipWriter(uwriter);
+                    await writer.add("metadata.msgpack", new Uint8ArrayReader(encoder.encode(metadata)));
+                    await writer.add(
+                      "extension.js",
+                      new Uint8ArrayReader(new TextEncoder().encode("console.log('Hello from extension!');")),
+                    );
+                    await writer.add(
+                      "README.md",
+                      new Uint8ArrayReader(
+                        new TextEncoder().encode("# 示例扩展\n\n这是一个示例扩展，用于演示 .prg 文件的扩展识别功能。"),
+                      ),
+                    );
+                    await writer.close();
+                    const content = await uwriter.getData();
+                    const path = await save({
+                      filters: [{ name: "Project Graph Extension", extensions: ["prg"] }],
+                      defaultPath: "example-extension.prg",
+                    });
+                    if (path) {
+                      await writeFile(path, content);
+                      toast.success("示例扩展已创建");
+                    }
+                  }}
+                >
+                  <FileCode className="mr-2 h-4 w-4" />
+                  创建示例扩展 (.prg)
                 </Item>
                 <Item
                   onClick={() => {
@@ -1621,13 +1723,17 @@ export function GlobalMenu() {
   );
 }
 
+export function openCurrentProjectFolder(project: Project) {
+  shellOpen(PathString.dirPath(project.uri.fsPath));
+}
+
 export async function onNewDraft() {
   const project = Project.newDraft();
   loadAllServicesBeforeInit(project);
   await project.init();
   loadAllServicesAfterInit(project);
-  store.set(projectsAtom, [...store.get(projectsAtom), project]);
-  store.set(activeProjectAtom, project);
+  store.set(tabsAtom, [...store.get(tabsAtom), project]);
+  store.set(activeTabAtom, project);
 }
 
 export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise<Project | undefined> {
@@ -1635,110 +1741,83 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
     const path = await open({
       directory: false,
       multiple: false,
-      filters: [{ name: "工程文件", extensions: ["prg", "json"] }],
+      filters: [{ name: "工程文件", extensions: ["prg"] }],
     });
     if (!path) return;
     uri = URI.file(path);
   }
-  let upgraded: ReturnType<typeof ProjectUpgrader.convertVAnyToN1> extends Promise<infer T> ? T : never;
 
-  // 读取文件内容并判断格式
-  const fileData = await readFile(uri.fsPath);
-
-  // 检查是否是以 '{' 开头的 JSON 文件
-  if (fileData[0] === 0x7b) {
-    // 0x7B 是 '{' 的 ASCII 码
-    const content = new TextDecoder().decode(fileData);
-    const json = JSON.parse(content);
-    const t = performance.now();
-    upgraded = await toast
-      .promise(ProjectUpgrader.convertVAnyToN1(json, uri), {
-        loading: "正在转换旧版项目文件...",
-        success: () => {
-          const time = performance.now() - t;
-          Telemetry.event("转换vany->n1", { time, length: content.length });
-          return `转换成功，耗时 ${time}ms`;
-        },
-        error: (e) => {
-          Telemetry.event("转换vany->n1报错", { error: String(e) });
-          return `转换失败，已发送错误报告，可在群内联系开发者\n${String(e)}`;
-        },
-      })
-      .unwrap();
-    toast.info("您正在尝试导入旧版的文件！稍后如果点击了保存文件，文件会保存为相同文件夹内的 .prg 后缀的文件");
-    uri = uri.with({ path: uri.path.replace(/\.json$/, ".prg") });
-  }
-  // 检查是否是以 0x91 0x86 开头的 msgpack 数据
-  if (fileData.length >= 2 && fileData[0] === 0x84 && fileData[1] === 0xa7) {
-    const decoder = new Decoder();
-    const decodedData = decoder.decode(fileData);
-    if (typeof decodedData !== "object" || decodedData === null) {
-      throw new Error("msgpack 解码结果不是有效的对象");
-    }
-    const t = performance.now();
-    upgraded = await toast
-      .promise(ProjectUpgrader.convertVAnyToN1(decodedData as Record<string, any>, uri), {
-        loading: "正在转换旧版项目文件...",
-        success: () => {
-          const time = performance.now() - t;
-          Telemetry.event("转换vany->n1", { time, length: fileData.length });
-          return `转换成功，耗时 ${time}ms`;
-        },
-        error: (e) => {
-          Telemetry.event("转换vany->n1报错", { error: String(e) });
-          return `转换失败，已发送错误报告，可在群内联系开发者\n${String(e)}`;
-        },
-      })
-      .unwrap();
-    toast.info("您正在尝试导入旧版的文件！稍后如果点击了保存文件，文件会保存为相同文件夹内的 .prg 后缀的文件");
-    uri = uri.with({ path: uri.path.replace(/\.json$/, ".prg") });
-  }
-
-  if (store.get(projectsAtom).some((p) => p.uri.toString() === uri.toString())) {
-    store.set(activeProjectAtom, store.get(projectsAtom).find((p) => p.uri.toString() === uri.toString())!);
-    const activeProject = store.get(activeProjectAtom);
-    if (!activeProject) return;
-    activeProject.loop();
+  if (
+    store
+      .get(tabsAtom)
+      .some((p) => (p instanceof Project || p instanceof Extension) && p.uri.toString() === uri.toString())
+  ) {
+    store.set(
+      activeTabAtom,
+      store
+        .get(tabsAtom)
+        .find((p) => (p instanceof Project || p instanceof Extension) && p.uri.toString() === uri.toString())!,
+    );
+    const tab = store.get(activeTabAtom);
+    const activeProject = tab instanceof Project ? tab : undefined;
+    if (activeProject) activeProject.loop();
+    // const activeExtension = tab instanceof Extension ? tab : undefined;
     // 把其他项目pause
     store
-      .get(projectsAtom)
-      .filter((p) => p.uri.toString() !== uri.toString())
-      .forEach((p) => p.pause());
+      .get(tabsAtom)
+      .filter((p) => p instanceof Project && p.uri.toString() !== uri.toString())
+      .forEach((p) => (p as Project).pause());
     toast.success("切换到已打开的标签页");
-    return activeProject;
+    return tab as any;
   }
-  const project = new Project(uri);
+
+  const dummyProject = new Project(uri);
+  loadAllServicesBeforeInit(dummyProject);
+  const tab = await TabFactory.create(uri, dummyProject.fs);
   const t = performance.now();
-  loadAllServicesBeforeInit(project);
+  if (tab instanceof Project) {
+    loadAllServicesBeforeInit(tab);
+  } else {
+    // Extension 只加载必要的基础服务
+    tab.registerFileSystemProvider("file", FileSystemProviderFile);
+    tab.registerFileSystemProvider("draft", FileSystemProviderDraft);
+  }
   const loadServiceTime = performance.now() - t;
 
   try {
     await toast
       .promise(
         async () => {
-          await project.init();
-          if (project.state !== ProjectState.Saved) {
-            // 用户取消了升级对话框，不打开文件
-            throw new Error("USER_CANCELLED");
+          await tab.init();
+          if (tab instanceof Project) {
+            if (tab.projectState !== ProjectState.Saved) {
+              // 用户取消了升级对话框，不打开文件
+              throw new Error("USER_CANCELLED");
+            }
+            loadAllServicesAfterInit(tab);
           }
-          loadAllServicesAfterInit(project);
         },
         {
           loading: "正在打开文件...",
           success: async () => {
-            if (upgraded) {
-              project.stage = deserialize(upgraded.data, project);
-              project.attachments = upgraded.attachments;
-              // 更新引用关系，包括双向线的偏移状态
-              project.stageManager.updateReferences();
-            }
             const readFileTime = performance.now() - t;
-            store.set(projectsAtom, [...store.get(projectsAtom), project]);
-            store.set(activeProjectAtom, project);
-            setTimeout(() => {
-              project.camera.reset();
-            }, 100);
+            store.set(tabsAtom, [...store.get(tabsAtom), tab]);
+            store.set(activeTabAtom, tab);
+            const project = tab instanceof Project ? tab : undefined;
+            if (project) {
+              setTimeout(() => {
+                project.camera.reset();
+              }, 100);
+            }
             await RecentFileManager.addRecentFileByUri(uri);
+            if (
+              isMac &&
+              Settings.showRecentFilesThumbnails &&
+              uri.scheme === "file" &&
+              uri.fsPath.toLowerCase().endsWith(".prg")
+            ) {
+              void ensurePrgThumbnailCached(uri.fsPath);
+            }
             Telemetry.event("打开文件", {
               loadServiceTime,
               readFileTime,
@@ -1747,6 +1826,7 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
 
             // 处理同名TXT文件内容（仅在用户直接打开文件且设置项开启时执行，生成双链时跳过）
             if (
+              project &&
               Settings.autoImportTxtFileWhenOpenPrg &&
               source !== "ReferenceBlockNode跳转打开-prg文件" &&
               source !== "ReferencesWindow跳转打开-prg文件"
@@ -1766,15 +1846,15 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
                       .split("\n")
                       .filter((line) => line.trim() !== "");
 
-                    if (lines.length > 0) {
+                    if (lines.length > 0 && tab instanceof Project) {
                       // 获取舞台上所有实体
-                      const entities = project.stageManager.getEntities();
+                      const entities = tab.stageManager.getEntities();
 
                       // 计算外接矩形
                       let startY = 0;
                       if (entities.length > 0) {
                         const boundingRect = Rectangle.getBoundingRectangle(
-                          entities.map((entity) => entity.collisionBox.getRectangle()),
+                          entities.map((entity: any) => entity.collisionBox.getRectangle()),
                         );
                         startY = boundingRect.bottom;
                       }
@@ -1782,14 +1862,14 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
                       // 创建并添加文本节点
                       for (let i = 0; i < lines.length; i++) {
                         const line = lines[i];
-                        const textNode = new TextNode(project, {
+                        const textNode = new TextNode(tab, {
                           text: line,
                           collisionBox: new CollisionBox([
                             new Rectangle(new Vector(0, startY + i * 100), new Vector(300, 100)),
                           ]),
                           sizeAdjust: "auto",
                         });
-                        project.stageManager.add(textNode);
+                        tab.stageManager.add(textNode);
                       }
 
                       // 清空TXT文件内容，避免下次打开时重复吸入
@@ -1804,7 +1884,7 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
                       });
 
                       // 设置项目状态为未保存
-                      project.state = ProjectState.Unsaved;
+                      tab.projectState = ProjectState.Unsaved;
                     }
                   }
                 } catch (e) {
@@ -1813,7 +1893,7 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
               }, 200);
             }
 
-            return `耗时 ${readFileTime}ms，共 ${project.stage.length} 个舞台对象，${project.attachments.size} 个附件`;
+            return `耗时 ${readFileTime}ms${project ? `，共 ${project.stage.length} 个舞台对象，${project.attachments.size} 个附件` : ""}`;
           },
           error: (e) => {
             if (e instanceof Error && e.message === "USER_CANCELLED") {
@@ -1833,7 +1913,94 @@ export async function onOpenFile(uri?: URI, source: string = "unknown"): Promise
     }
     throw e;
   }
-  return project;
+  return tab as any;
+}
+
+/**
+ * 将旧版 JSON（1.x 系列）或旧版 msgpack 格式文件升级为新版 .prg 文件，
+ * 生成在同一目录下，完成后弹窗提示并询问是否立即打开。
+ */
+export async function onUpgradeOldJson() {
+  const path = await open({
+    directory: false,
+    multiple: false,
+    filters: [{ name: "旧版工程文件", extensions: ["json"] }],
+  });
+  if (!path) return;
+
+  const sourceUri = URI.file(path);
+  const fileData = await readFile(sourceUri.fsPath);
+
+  let rawData: Record<string, any>;
+  if (fileData[0] === 0x7b) {
+    try {
+      rawData = JSON.parse(new TextDecoder().decode(fileData));
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      await Dialog.confirm("JSON解析出错", `错误信息：\n${errorMessage}`);
+      return;
+    }
+  } else if (fileData.length >= 2 && fileData[0] === 0x84 && fileData[1] === 0xa7) {
+    // 旧版 msgpack（魔数 0x84 0xa7 对应 4-element fixmap）
+    const decoded = new Decoder().decode(fileData);
+    if (typeof decoded !== "object" || decoded === null) {
+      toast.error("文件格式无效，无法解析");
+      return;
+    }
+    rawData = decoded as Record<string, any>;
+  } else {
+    toast.error("所选文件不是可识别的旧版工程文件（需要 JSON 格式）");
+    return;
+  }
+
+  const t = performance.now();
+  const upgraded = await toast
+    .promise(ProjectUpgrader.convertVAnyToN1(rawData, sourceUri), {
+      loading: "正在升级旧版工程文件...",
+      success: () => {
+        const time = performance.now() - t;
+        Telemetry.event("升级json->prg", { time, length: fileData.length });
+        return `转换成功，耗时 ${time}ms`;
+      },
+      error: (e) => {
+        Telemetry.event("升级json->prg报错", { error: String(e) });
+        return `转换失败，已发送错误报告，可在群内联系开发者\n${String(e)}`;
+      },
+    })
+    .unwrap()
+    .catch(() => null);
+  if (!upgraded) return;
+
+  const prgUri = sourceUri.with({ path: sourceUri.path.replace(/\.json$/, ".prg") });
+  const prgPath = prgUri.fsPath;
+
+  if (await exists(prgPath)) {
+    const overwrite = await Dialog.confirm(
+      "目标文件已存在",
+      `文件 "${prgPath.split(/[\\/]/).pop()}" 已存在，是否覆盖？`,
+      { destructive: true },
+    );
+    if (!overwrite) return;
+  }
+
+  // loadAllServices + stageManager.updateReferences() 是写入前必须的初始化步骤
+  const tempProject = new Project(prgUri);
+  loadAllServicesBeforeInit(tempProject);
+  await tempProject.init();
+  loadAllServicesAfterInit(tempProject);
+  tempProject.stage = deserialize(upgraded.data, tempProject);
+  tempProject.attachments = upgraded.attachments;
+  tempProject.stageManager.updateReferences();
+  await tempProject.save();
+  await tempProject.dispose();
+
+  const shouldOpen = await Dialog.confirm(
+    "升级成功！",
+    `已在原文件旁边生成了新文件：\n${prgPath}\n\n是否立即打开该文件？`,
+  );
+  if (shouldOpen) {
+    await onOpenFile(prgUri, "upgradeFromJson");
+  }
 }
 
 /**
@@ -1894,8 +2061,8 @@ export async function createFileAtCurrentProjectDir(activeProject: Project | und
             .save()
             .then(async () => {
               // 更新项目列表和活动项目
-              store.set(projectsAtom, [...store.get(projectsAtom), newProject]);
-              store.set(activeProjectAtom, newProject);
+              store.set(tabsAtom, [...store.get(tabsAtom), newProject]);
+              store.set(activeTabAtom, newProject);
               await RecentFileManager.addRecentFileByUri(newUri);
               await refresh();
               toast.success(`成功创建新文件：${fileName}.prg`);

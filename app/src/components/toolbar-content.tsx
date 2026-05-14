@@ -2,8 +2,7 @@ import { Settings } from "@/core/service/Settings";
 import { Button } from "./ui/button";
 import { Toolbar } from "./ui/toolbar";
 import { MousePointer, Pencil, Waypoints } from "lucide-react";
-import { Tooltip } from "./ui/tooltip";
-import { TooltipContent, TooltipTrigger } from "@radix-ui/react-tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { cn } from "@/utils/cn";
@@ -115,7 +114,7 @@ const DrawingColorLine: React.FC = () => {
         return (
           <div
             className={cn(
-              "outline-accent-foreground hover:outline-3 hover:-outline-offset-3 size-4 cursor-pointer",
+              "outline-accent-foreground size-4 cursor-pointer hover:outline-3 hover:-outline-offset-3",
               currentDrawColor.equals(color) && "outline-2 -outline-offset-2",
             )}
             key={color.toString()}

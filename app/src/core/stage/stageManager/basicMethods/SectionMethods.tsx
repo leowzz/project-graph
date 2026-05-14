@@ -248,7 +248,7 @@ export class SectionMethods {
   }
 
   /**
-   * 返回一个Section框的最大嵌套深度
+   * 返回一个分组框的最大嵌套深度
    * @param section
    */
   getSectionMaxDeep(section: Section): number {

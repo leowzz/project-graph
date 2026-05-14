@@ -43,7 +43,6 @@ globalMenu:
     exportAsSVG: Ekspor sebagai SVG
     exportAll: Ekspor Semua Konten
     plainTextType:
-      exportAllNodeGraph: Ekspor Seluruh Struktur Jaringan
       exportSelectedNodeGraph: Ekspor Struktur Jaringan yang Dipilih
       exportSelectedNodeTree: Ekspor Struktur Pohon yang Dipilih (Indentasi Teks Murni)
       exportSelectedNodeTreeMarkdown: Ekspor Struktur Pohon yang Dipilih (Format Markdown)
@@ -204,6 +203,10 @@ settings:
     description: |
       Mengontrol apakah menampilkan bilah operasi cepat di sisi kanan antarmuka (bilah pengaturan cepat).
       Bilah pengaturan cepat memungkinkan Anda mengalihkan status pengaturan umum dengan cepat.
+  showRecentFilesThumbnails:
+    title: Tampilkan Thumbnail di File Terbaru
+    description: |
+      Mengontrol apakah menampilkan thumbnail proyek di panel "File Terbaru".
   autoAdjustLineEndpointsByMouseTrack:
     title: Sesuaikan Posisi Ujung Garis Otomatis Berdasarkan Jejak Mouse
     description: |
@@ -220,6 +223,11 @@ settings:
       straight: Garis Lurus
       bezier: Kurva Bezier
       vertical: Garis Patah Vertikal
+  hideArrowWhenPointingToConnectPoint:
+    title: Sembunyikan Panah Saat Mengarah ke Titik Koneksi
+    description: |
+      Saat diaktifkan, panah tidak dirender ketika target garis adalah titik koneksi.
+      Berlaku untuk garis lurus, kurva bezier, dan garis patah vertikal.
   isRenderCenterPointer:
     title: Tampilkan Penanda Silang Pusat
     description: |
@@ -274,6 +282,14 @@ settings:
     description: |
       Saat node teks dipilih, tampilkan petunjuk keyboard (tab/W W/S S/A A/D D) di sekitar node yang menunjukkan arah pertumbuhan pohon.
       Saat dinonaktifkan, label petunjuk ini tidak akan dirender.
+  newNodeScaleByCamera:
+    title: Node Baru Mengikuti Zoom Kamera
+    description: |
+      Saat diaktifkan, node teks yang baru dibuat akan menyesuaikan ukuran font secara otomatis
+      berdasarkan level zoom kamera saat ini, sehingga ukuran visual tetap konstan di layar. Dinonaktifkan secara default.
+  newNodeScaleByCameraOffset:
+    title: Offset Level Ukuran Otomatis Kamera
+    description: Digunakan bersama "Node Baru Mengikuti Zoom Kamera". Nilai positif membuat node baru lebih besar; nilai negatif membuatnya lebih kecil.
   sectionBitTitleRenderType:
     title: Jenis Render Judul Besar Ringkasan Kotak
     options:
@@ -348,22 +364,6 @@ settings:
     title: Tinggi Jendela Mini
     description: |
       Tinggi jendela saat beralih ke jendela mini, dalam piksel
-  limitCameraInCycleSpace:
-    title: Aktifkan Batasan Gerakan Kamera dalam Ruang Siklik
-    description: |
-      Saat diaktifkan, kamera hanya dapat bergerak dalam area persegi panjang
-      Dapat mencegah kamera tersesat saat bergerak terlalu jauh
-      Area persegi panjang ini akan membentuk ruang siklik, mirip dengan peta dalam game ular tanpa batas
-      Ke atas teratas akan kembali ke bawah, ke kiri terkiri akan kembali ke kanan
-      Perhatian: Fitur ini masih dalam tahap eksperimen
-  cameraCycleSpaceSizeX:
-    title: Lebar Ruang Siklik
-    description: |
-      Lebar ruang siklik, dalam piksel
-  cameraCycleSpaceSizeY:
-    title: Tinggi Ruang Siklik
-    description: |
-      Tinggi ruang siklik, dalam piksel
   renderEffect:
     title: Efek Render
     description: Apakah merender efek, jika lag dapat dimatikan
@@ -429,6 +429,24 @@ settings:
       Masukkan `{{date}}` akan diganti dengan tanggal saat ini, saat membuat dengan klik ganda dapat memperbarui tanggal secara otomatis.
       Masukkan `{{time}}` akan diganti dengan waktu saat ini, saat membuat dengan klik ganda dapat memperbarui waktu secara otomatis.
       Dapat dikombinasikan, contoh `{{i}}-{{date}}-{{time}}`
+  autoNamerDetailsTemplate:
+    title: Isi Detail Otomatis Saat Membuat Node
+    description: |
+      Saat membuat node teks, konten ini akan otomatis diisi ke kolom "Detail" node.
+      Biarkan kosong agar tidak mengisi konten apapun secara otomatis.
+      Mendukung sintaks template yang sama dengan judul:
+      Masukkan `{{i}}` akan diganti dengan nomor (sinkron dengan judul).
+      Masukkan `{{date}}` akan diganti dengan tanggal saat ini.
+      Masukkan `{{time}}` akan diganti dengan waktu saat ini.
+  autoNamerTreeNodeTemplate:
+    title: Template Nama Awal Node Saat Tab Ditekan
+    description: |
+      Nama awal untuk node baru yang dibuat dengan menekan Tab dalam mode keyboard.
+      Masukkan `{{i}}` akan diganti dengan nomor untuk menghindari nama duplikat.
+      Contoh, `Node_{{i}}` akan diganti menjadi `Node_0`, `Node_1`, `Node_2`...
+      Masukkan `{{date}}` akan diganti dengan tanggal saat ini.
+      Masukkan `{{time}}` akan diganti dengan waktu saat ini.
+      Dapat dikombinasikan, contoh `Node_{{i}}-{{date}}`
   autoSaveWhenClose:
     title: Simpan File Proyek Otomatis Saat Klik Tombol Tutup Jendela
     description: |
@@ -476,6 +494,11 @@ settings:
     title: Path Pencadangan Otomatis Kustom
     description: |
       Mengatur path penyimpanan file cadangan otomatis, jika kosong akan menggunakan path default
+  autoBackupCustomPath2:
+    title: Path Pencadangan Otomatis Kustom (Kedua)
+    description: |
+      Jika path pertama kosong atau pencadangan gagal, akan mencoba path kedua
+      Jika path kedua juga gagal, akan kembali ke path default
   scaleExponent:
     title: Kecepatan Zoom Tampilan
     description: |
@@ -484,6 +507,22 @@ settings:
       Nilai 1 berarti zoom akan selesai seketika, tanpa efek transisi di tengah
       Nilai 0 berarti zoom tidak akan pernah selesai, dapat mensimulasikan efek kunci
       Perhatian: Jika Anda merasa lag saat zoom, atur ke 1
+  cameraZoomInLimitBehavior:
+    title: Perilaku Saat Zoom-In Maksimum
+    description: |
+      Dipicu saat zoom in melewati batas zoom atas.
+    options:
+      macro: Kembali ke tampilan makro
+      micro: Kembali ke batas mikro
+      reset: Kembali ke ukuran standar (skala 1)
+  cameraZoomOutLimitBehavior:
+    title: Perilaku Saat Zoom-Out Maksimum
+    description: |
+      Dipicu saat zoom out melewati batas zoom bawah.
+    options:
+      macro: Kembali ke tampilan makro
+      micro: Kembali ke batas mikro
+      reset: Kembali ke ukuran standar (skala 1)
   cameraKeyboardScaleRate:
     title: Laju Zoom Tampilan via Keyboard
     description: |
@@ -678,6 +717,12 @@ settings:
       auto: Selalu Sesuaikan Otomatis
       manual: Selalu Sesuaikan Manual
       autoByLength: Sesuaikan Otomatis Berdasarkan Panjang
+  textNodeManualDefaultCharWidth:
+    title: Lebar Default Mode Manual Node Teks (Jumlah Karakter Cina)
+    description: |
+      Lebar default node teks saat beralih ke mode lebar manual menggunakan pintasan ttt.
+      Satuannya adalah karakter Cina, misalnya mengatur ke 10 berarti lebar 10 karakter Cina.
+      Lebar karakter Inggris adalah setengah dari karakter Cina.
   textNodeAutoFormatTreeWhenExitEdit:
     title: Format Struktur Pohon Otomatis Saat Keluar Mode Edit
     description: |
@@ -1087,6 +1132,25 @@ keyBindsGroup:
     title: Kontrol Kamera
     description: |
       Untuk mengontrol gerakan kamera, zoom
+  CameraMoveUp:
+    title: Gerakkan Kamera Ke Atas
+    description: Saat ditekan, gerakkan kamera ke atas
+  CameraMoveDown:
+    title: Gerakkan Kamera Ke Bawah
+    description: Saat ditekan, gerakkan kamera ke bawah
+  CameraMoveLeft:
+    title: Gerakkan Kamera Ke Kiri
+    description: Saat ditekan, gerakkan kamera ke kiri
+  CameraMoveRight:
+    title: Gerakkan Kamera Ke Kanan
+    description: Saat ditekan, gerakkan kamera ke kanan
+  continuousShortcut:
+    title: pintasan berkelanjutan
+  continuousShortcutTooltip:
+    title: deskripsi pintasan berkelanjutan
+    description: Pintasan yang perlu ditekan secara berkelanjutan, dan Anda akan merasakan efeknya setelah melepaskannya setelah periode singkat. Tidak seperti pintasan urutan, ini tidak bisa menjadi urutan tombol.
+  resetToDefault:
+    title: Atur ulang ke default
   app:
     title: Kontrol Aplikasi
     description: |
@@ -1203,6 +1267,11 @@ keyBinds:
     title: Buka File
     description: |
       Pilih file json/prg yang pernah disimpan dan buka
+  openCurrentProjectFileFolder:
+    title: Buka Folder File Proyek Saat Ini
+    description: |
+      Buka folder yang berisi file proyek saat ini di manajer file sistem
+      Tidak tersedia saat file saat ini adalah konsep
   undo:
     title: Batalkan
     description: Batalkan operasi sebelumnya
@@ -1240,12 +1309,6 @@ keyBinds:
   setSelectedEdgesToSolid:
     title: Ubah Garis yang Dipilih Menjadi Solid
     description: Mengatur tipe garis yang dipilih menjadi solid
-  reverseSelectedNodeEdge:
-    title: Balikkan Semua Garis Node yang Dipilih
-    description: |
-      Setelah ditekan, dalam semua node yang dipilih dengan seleksi kotak
-      Setiap garis setiap node akan dibalikkan arahnya
-      Sehingga mewujudkan satu-ke-banyak yang lebih cepat
   createUndirectedEdgeFromEntities:
     title: Buat Garis Tak Berarah antar Entitas yang Dipilih
     description: |
@@ -1302,10 +1365,26 @@ keyBinds:
   generateNodeGraph:
     title: Tumbuhkan Node Bebas
     description: |
-      Setelah ditekan, muncul posisi tumbuh virtual
-      Saat ini, tekan tombol "I J K L" untuk menyesuaikan posisi tumbuh secara bebas
-      Tekan tombol ini lagi, keluar dari mode tumbuh bebas
+      Tahan tombol ini, posisi tumbuh virtual muncul
+      Saat menahan, tekan tombol "I J K L" untuk menyesuaikan posisi tumbuh secara bebas
+      Lepaskan tombol ini untuk menyelesaikan pembuatan node
       Sebelum menggunakan fungsi ini pastikan telah memilih satu node
+  generateNodeGraphMoveUp:
+    title: Tumbuh Node Bebas — Gerak ke Atas
+    description: |
+      Saat mode tumbuh bebas aktif (menahan tombol backtick), tahan tombol ini untuk menggerakkan posisi target virtual ke atas
+  generateNodeGraphMoveDown:
+    title: Tumbuh Node Bebas — Gerak ke Bawah
+    description: |
+      Saat mode tumbuh bebas aktif (menahan tombol backtick), tahan tombol ini untuk menggerakkan posisi target virtual ke bawah
+  generateNodeGraphMoveLeft:
+    title: Tumbuh Node Bebas — Gerak ke Kiri
+    description: |
+      Saat mode tumbuh bebas aktif (menahan tombol backtick), tahan tombol ini untuk menggerakkan posisi target virtual ke kiri
+  generateNodeGraphMoveRight:
+    title: Tumbuh Node Bebas — Gerak ke Kanan
+    description: |
+      Saat mode tumbuh bebas aktif (menahan tombol backtick), tahan tombol ini untuk menggerakkan posisi target virtual ke kanan
   createConnectPointWhenDragConnecting:
     title: Saat Menyeret Garis, Tekan Tombol Ini untuk Buat Titik Massa Transit
     description: |
@@ -1325,11 +1404,6 @@ keyBinds:
     description: |
       Lakukan penyesuaian layout otomatis pada struktur graf asiklik berarah (DAG) yang dipilih
       Hanya tersedia saat node yang dipilih membentuk struktur DAG
-  gravityLayout:
-    title: Tahan Layout Gaya Gravitasi
-    description: |
-      Setelah memilih sekelompok node yang terhubung garis, tahan tombol ini untuk melakukan layout gaya gravitasi.
-      Perhatian jika ingin menyesuaikan kustom, hanya dapat diatur ke tombol non-modifier tunggal, jika tidak mungkin ada bug yang tidak diketahui.
   setNodeTreeDirectionLeft:
     title: Atur Arah Tumbuh Pohon Node Saat Ini ke Kiri
     description: |
@@ -1363,6 +1437,18 @@ keyBinds:
   selectAll:
     title: Pilih Semua
     description: Setelah ditekan, semua node dan garis akan dipilih
+  generateTreeBySelectedTextNodeTextWithAI:
+    title: "AI: Buat Struktur Pohon"
+    description: |
+      Isi panel AI dengan konten node teks yang dipilih dan prompt bawaan untuk menghasilkan grafik node berbentuk pohon.
+  generateNetBySelectedTextNodeTextWithAI:
+    title: "AI: Buat Grafik Relasi Jaringan"
+    description: |
+      Isi panel AI dengan konten node teks yang dipilih dan prompt bawaan untuk menghasilkan grafik relasi berbentuk jaringan.
+  generateSummaryBySelectedTextNodeTextWithAI:
+    title: "AI: Buat Ringkasan"
+    description: |
+      Isi panel AI dengan konten node teks yang dipilih dan prompt bawaan untuk meringkas inti konten.
   createTextNodeFromCameraLocation:
     title: Buat Node Teks di Posisi Pusat Tampilan
     description: |
@@ -1416,19 +1502,19 @@ keyBinds:
   moveUpSelectedEntities:
     title: Gerakkan Semua Entitas yang Dipilih ke Atas
     description: |
-      Setelah ditekan, semua entitas yang dipilih akan bergerak ke atas satu jarak tetap
+      Tahan untuk terus menggerakkan semua entitas yang dipilih ke atas; lepas untuk meluncur berhenti.
   moveDownSelectedEntities:
     title: Gerakkan Semua Entitas yang Dipilih ke Bawah
     description: |
-      Setelah ditekan, semua entitas yang dipilih akan bergerak ke bawah satu jarak tetap
+      Tahan untuk terus menggerakkan semua entitas yang dipilih ke bawah; lepas untuk meluncur berhenti.
   moveLeftSelectedEntities:
     title: Gerakkan Semua Entitas yang Dipilih ke Kiri
     description: |
-      Setelah ditekan, semua entitas yang dipilih akan bergerak ke kiri satu jarak tetap
+      Tahan untuk terus menggerakkan semua entitas yang dipilih ke kiri; lepas untuk meluncur berhenti.
   moveRightSelectedEntities:
     title: Gerakkan Semua Entitas yang Dipilih ke Kanan
     description: |
-      Setelah ditekan, semua entitas yang Dipilih akan bergerak ke kanan satu jarak tetap
+      Tahan untuk terus menggerakkan semua entitas yang dipilih ke kanan; lepas untuk meluncur berhenti.
   jumpMoveUpSelectedEntities:
     title: Lompat Gerakkan Semua Entitas yang Dipilih ke Atas
     description: |
@@ -1641,13 +1727,13 @@ keyBinds:
     title: Tumpuk Rapat Rekursif
   adjustSelectedTextNodeWidthMin:
     title: Seragamkan Lebar ke Nilai Minimum
-    description: Hanya berlaku untuk node teks, seragamkan lebar semua node yang dipilih ke nilai minimum
+    description: Hanya berlaku untuk node teks, seragamkan lebar semua node yang dipilih ke nilai minimum (Tombol pintas：1→3→2)
   adjustSelectedTextNodeWidthMax:
     title: Seragamkan Lebar ke Nilai Maksimum
-    description: Hanya berlaku untuk node teks, seragamkan lebar semua node yang dipilih ke nilai maksimum
+    description: Hanya berlaku untuk node teks, seragamkan lebar semua node yang dipilih ke nilai maksimum (Tombol pintas：7→9→8)
   adjustSelectedTextNodeWidthAverage:
     title: Seragamkan Lebar ke Nilai Rata-rata
-    description: Hanya berlaku untuk node teks, seragamkan lebar semua node yang dipilih ke nilai rata-rata
+    description: Hanya berlaku untuk node teks, seragamkan lebar semua node yang dipilih ke nilai rata-rata (Tombol pintas：4→6→5)
   connectAllSelectedEntities:
     title: Hubungkan Semua Entitas yang Dipilih Secara Penuh
     description: Untuk skenario pengajaran khusus atau pengajaran teori graf, "--" di awal menunjukkan terkait garis
@@ -1711,6 +1797,9 @@ keyBinds:
   swapTextAndDetails:
     title: Tukar Ringkas dan Detail
     description: Tukar informasi detail dan konten aktual semua node teks yang dipilih, tekan e 5 kali berturut-turut, terutama digunakan untuk konten teks yang ditempel langsung ingin ditulis ke informasi detail
+  createTwinTextNode:
+    title: Buat Node Teks Kembar
+    description: Buat node kembar untuk semua node teks yang dipilih. Node baru akan menyinkronkan konten dengan node asli. Tekan Shift+Y untuk memicu.
   reverseImageColors:
     title: Balikkan Warna Gambar
     description: Balikkan warna gambar yang dipilih (ubah latar belakang putih menjadi hitam, atau sebaliknya)

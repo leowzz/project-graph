@@ -1,6 +1,5 @@
 import { runCli } from "@/cli";
 import { Toaster } from "@/components/ui/sonner";
-import { UserScriptsManager } from "@/core/plugin/UserScriptsManager";
 import { MouseLocation } from "@/core/service/controlService/MouseLocation";
 import { RecentFileManager } from "@/core/service/dataFileService/RecentFileManager";
 import { StartFilesManager } from "@/core/service/dataFileService/StartFilesManager";
@@ -20,13 +19,16 @@ import "driver.js/dist/driver.css";
 import i18next from "i18next";
 import { Provider } from "jotai";
 import { createRoot } from "react-dom/client";
+import { ErrorBoundary } from "react-error-boundary";
 import { initReactI18next } from "react-i18next";
 import { toast } from "sonner";
 import VConsole from "vconsole";
 import { URI } from "vscode-uri";
 import App from "./App";
+import { ExtensionManager } from "./core/extension/ExtensionManager";
 import { onOpenFile } from "./core/service/GlobalMenu";
 import "./css/index.css";
+import Fallback from "./Fallback";
 
 if (import.meta.env.DEV && isMobile) {
   new VConsole();
@@ -45,9 +47,9 @@ const el = document.getElementById("root")!;
     StartFilesManager.init(),
     ColorManager.init(),
     Tutorials.init(),
-    UserScriptsManager.init(),
     UserState.init(),
     QuickSettingsManager.init(),
+    ExtensionManager.init(),
   ]);
   // 这些东西依赖上面的东西，所以单独一个Promise.all
   await Promise.all([loadLanguageFiles(), loadSyncModules()]);
@@ -109,7 +111,9 @@ async function renderApp(cli: boolean = false) {
     root.render(
       <Provider store={store}>
         <Toaster richColors visibleToasts={5} expand />
-        <App />
+        <ErrorBoundary FallbackComponent={Fallback}>
+          <App />
+        </ErrorBoundary>
       </Provider>,
     );
   }

@@ -17,7 +17,6 @@ import { SoundService } from "@/core/service/feedbackService/SoundService";
 import { settingsSchema } from "@/core/service/Settings";
 import Fuse from "fuse.js";
 import {
-  AppWindowMac,
   Bot,
   Brain,
   Bug,
@@ -34,22 +33,23 @@ import {
   MoveUpRight,
   Network,
   PictureInPicture,
+  Proportions,
+  RectangleHorizontal,
   Save,
+  Scan,
+  ScanSearch,
   Search,
   Sparkle,
   SplinePointer,
   SquareDashedMousePointer,
   SquareDashedTopSolid,
   SquareFunction,
-  Telescope,
   TextCursorInput,
   TextQuote,
   Touchpad,
   Unplug,
-  Workflow,
   Wrench,
   Zap,
-  ZoomIn,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -64,7 +64,7 @@ export default function SettingsTab() {
 
   useEffect(() => {
     fuse.current = new Fuse(
-      Object.keys(settingsSchema._def.shape()).map(
+      Object.keys(settingsSchema.shape).map(
         (key) =>
           ({
             key,
@@ -204,6 +204,7 @@ const categories = {
       "language",
       "isClassroomMode",
       "showQuickSettingsToolbar",
+      "showRecentFilesThumbnails",
       "showKeyBindHint",
       "windowBackgroundAlpha",
       "windowBackgroundOpacityAfterOpenClickThrough",
@@ -220,8 +221,7 @@ const categories = {
       "stealthModeReverseMask",
       "stealthModeMaskShape",
     ],
-    node: ["enableTagTextNodesBigDisplay", "showTextNodeBorder", "showTreeDirectionHint"],
-    edge: ["lineStyle", "enableAutoEdgeWidth"],
+    node: ["enableTagTextNodesBigDisplay", "showTextNodeBorder", "showTreeDirectionHint", "showEditModeHint"],
     section: [
       "sectionBitTitleRenderType",
       "sectionBigTitleThresholdRatio",
@@ -229,6 +229,7 @@ const categories = {
       "sectionBigTitleOpacity",
       "sectionBackgroundFillMode",
     ],
+    edge: ["lineStyle", "hideArrowWhenPointingToConnectPoint", "enableAutoEdgeWidth"],
     entityDetails: [
       "nodeDetailsPanel",
       "alwaysShowDetails",
@@ -237,18 +238,23 @@ const categories = {
       "entityDetailsWidthLimit",
     ],
     debug: ["showDebug", "protectingPrivacy", "protectingPrivacyMode"],
-    experimental: [
-      "limitCameraInCycleSpace",
-      "cameraCycleSpaceSizeX",
-      "cameraCycleSpaceSizeY",
-      "windowCollapsingWidth",
-      "windowCollapsingHeight",
-    ],
+    experimental: ["windowCollapsingWidth", "windowCollapsingHeight"],
   },
   automation: {
-    autoNamer: ["autoNamerTemplate", "autoNamerSectionTemplate"],
+    autoNamer: [
+      "autoNamerTemplate",
+      "autoNamerSectionTemplate",
+      "autoNamerDetailsTemplate",
+      "autoNamerTreeNodeTemplate",
+    ],
     autoSave: ["autoSaveWhenClose", "autoSave", "autoSaveInterval"],
-    autoBackup: ["autoBackup", "autoBackupInterval", "autoBackupLimitCount", "autoBackupCustomPath"],
+    autoBackup: [
+      "autoBackup",
+      "autoBackupInterval",
+      "autoBackupLimitCount",
+      "autoBackupCustomPath",
+      "autoBackupCustomPath2",
+    ],
     autoImport: ["autoImportTxtFileWhenOpenPrg"],
   },
   control: {
@@ -270,14 +276,15 @@ const categories = {
       "enableCtrlWheelRotateStructure",
     ],
     touchpad: ["enableWindowsTouchPad", "macTrackpadAndMouseWheelDifference", "macTrackpadScaleSensitivity"],
-    cameraMove: ["allowMoveCameraByWSAD", "cameraKeyboardMoveReverse", "moveAmplitude", "moveFriction"],
+    cameraMove: ["moveAmplitude", "moveFriction"],
     cameraZoom: [
       "scaleExponent",
+      "cameraZoomInLimitBehavior",
+      "cameraZoomOutLimitBehavior",
       "cameraResetViewPaddingRate",
       "cameraResetMaxScale",
       "scaleCameraByMouseLocation",
       "cameraKeyboardScaleRate",
-      "cameraKeyboardScaleReverse",
     ],
     objectSelect: [
       "rectangleSelectWhenRight",
@@ -294,6 +301,9 @@ const categories = {
       "textNodeBackspaceDeleteWhenEmpty",
       "textNodeBigContentThresholdWhenPaste",
       "textNodePasteSizeAdjustMode",
+      "textNodeManualDefaultCharWidth",
+      "newNodeScaleByCamera",
+      "newNodeScaleByCameraOffset",
     ],
     section: ["isEnableSectionCollision"],
     edge: [
@@ -349,8 +359,8 @@ const categoryIcons = {
     icon: Wrench,
     mouse: Mouse,
     touchpad: Touchpad,
-    cameraMove: Telescope,
-    cameraZoom: ZoomIn,
+    cameraMove: Scan,
+    cameraZoom: ScanSearch,
     objectSelect: SquareDashedMousePointer,
     textNode: TextCursorInput,
     section: SquareDashedTopSolid,
@@ -367,9 +377,9 @@ const categoryIcons = {
   },
   visual: {
     icon: Eye,
-    basic: AppWindowMac,
+    basic: Proportions,
     background: Layers,
-    node: Workflow,
+    node: RectangleHorizontal,
     edge: MoveUpRight,
     section: SquareDashedTopSolid,
     entityDetails: TextQuote,

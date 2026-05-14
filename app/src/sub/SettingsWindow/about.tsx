@@ -46,9 +46,14 @@ export default function AboutTab() {
           <h1 className="flex items-center gap-2 text-3xl font-semibold">
             <span>Project Graph</span>
             {/* 把版本号调大一些，因为一些用户录屏反馈的时候会主动打开这个页面，展示版本号。如果字太小了，在手机上看用户录屏视频就看不清了 */}
-            <span className="border-border inline-flex items-center rounded-md border bg-gray-800 px-2 py-1 text-xl">
+            <a
+              href="https://graphif.dev/docs/app/misc/history"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border-border inline-flex cursor-pointer items-center rounded-md border bg-gray-800 px-2 py-1 text-xl hover:underline"
+            >
               v{appVersion}
-            </span>
+            </a>
           </h1>
           <p className="text-sm opacity-50">{t("slogan")}</p>
         </div>

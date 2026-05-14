@@ -65,6 +65,7 @@ pub fn run() {
             cmd::device::get_device_id,
             cmd::fs::read_folder_structure,
             cmd::fs::read_folder_recursive,
+            cmd::shell::run_command,
             write_stdout,
             write_stderr,
             exit,

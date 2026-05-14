@@ -17,6 +17,7 @@ import { EntityRenderer } from "@/core/render/canvas2d/entityRenderer/EntityRend
 import { MultiTargetUndirectedEdgeRenderer } from "@/core/render/canvas2d/entityRenderer/multiTargetUndirectedEdge/MultiTargetUndirectedEdgeRenderer";
 import { SectionRenderer } from "@/core/render/canvas2d/entityRenderer/section/SectionRenderer";
 import { SvgNodeRenderer } from "@/core/render/canvas2d/entityRenderer/svgNode/SvgNodeRenderer";
+import { LatexNodeRenderer } from "@/core/render/canvas2d/entityRenderer/latexNode/LatexNodeRenderer";
 import { TextNodeRenderer } from "@/core/render/canvas2d/entityRenderer/textNode/TextNodeRenderer";
 import { UrlNodeRenderer } from "@/core/render/canvas2d/entityRenderer/urlNode/urlNodeRenderer";
 import { ReferenceBlockRenderer } from "@/core/render/canvas2d/entityRenderer/ReferenceBlockRenderer";
@@ -35,9 +36,7 @@ import { KeyboardOnlyGraphEngine } from "@/core/service/controlService/keyboardO
 import { KeyboardOnlyTreeEngine } from "@/core/service/controlService/keyboardOnlyEngine/keyboardOnlyTreeEngine";
 import { SelectChangeEngine } from "@/core/service/controlService/keyboardOnlyEngine/selectChangeEngine";
 import { RectangleSelect } from "@/core/service/controlService/rectangleSelectEngine/rectangleSelectEngine";
-import { KeyBinds } from "@/core/service/controlService/shortcutKeysEngine/KeyBinds";
 import { KeyBindHintEngine } from "@/core/service/controlService/shortcutKeysEngine/KeyBindHintEngine";
-import { KeyBindsRegistrar } from "@/core/service/controlService/shortcutKeysEngine/shortcutKeysRegister";
 import { MouseInteraction } from "@/core/service/controlService/stageMouseInteractionCore/stageMouseInteractionCore";
 import { AutoComputeUtils } from "@/core/service/dataGenerateService/autoComputeEngine/AutoComputeUtils";
 import { AutoCompute } from "@/core/service/dataGenerateService/autoComputeEngine/mainTick";
@@ -71,6 +70,7 @@ import { SectionInOutManager } from "@/core/stage/stageManager/concreteMethods/S
 import { SectionPackManager } from "@/core/stage/stageManager/concreteMethods/StageSectionPackManager";
 import { SectionCollisionSolver } from "@/core/stage/stageManager/concreteMethods/SectionCollisionSolver";
 import { TagManager } from "@/core/stage/stageManager/concreteMethods/StageTagManager";
+import { StageSyncAssociationManager } from "@/core/stage/stageManager/concreteMethods/StageSyncAssociationManager";
 import { HistoryManager } from "@/core/stage/stageManager/StageHistoryManager";
 import { StageManager } from "@/core/stage/stageManager/StageManager";
 import { AutoSaveBackupService } from "./service/dataFileService/AutoSaveBackupService";
@@ -86,7 +86,7 @@ export function loadAllServicesBeforeInit(project: Project): void {
   project.loadService(Canvas);
   project.loadService(InputElement);
   project.loadService(StageStyleManager);
-  project.loadService(KeyBinds);
+  // project.loadService(KeyBinds);
   project.loadService(ControllerUtils);
 
   // 基础算法
@@ -131,6 +131,7 @@ export function loadAllServicesBeforeInit(project: Project): void {
   project.loadService(SectionPackManager);
   project.loadService(SectionCollisionSolver);
   project.loadService(TagManager);
+  project.loadService(StageSyncAssociationManager);
   project.loadService(ReferenceManager);
   project.loadService(KeyboardOnlyEngine);
   project.loadService(KeyboardOnlyGraphEngine);
@@ -154,6 +155,7 @@ export function loadAllServicesBeforeInit(project: Project): void {
   project.loadService(EdgeRenderer);
   project.loadService(SectionRenderer);
   project.loadService(SvgNodeRenderer);
+  project.loadService(LatexNodeRenderer);
   project.loadService(TextNodeRenderer);
   project.loadService(UrlNodeRenderer);
   project.loadService(ReferenceBlockRenderer);
@@ -168,7 +170,6 @@ export function loadAllServicesBeforeInit(project: Project): void {
   project.loadService(GenerateFromFolder);
 
   // 快捷键交互
-  project.loadService(KeyBindsRegistrar);
   project.loadService(KeyBindHintEngine);
 
   // 自动保存与备份

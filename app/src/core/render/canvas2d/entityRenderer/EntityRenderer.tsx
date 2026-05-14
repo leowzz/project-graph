@@ -2,16 +2,19 @@ import { Project, service } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { ConnectPoint } from "@/core/stage/stageObject/entity/ConnectPoint";
+import { ExtensionEntity } from "@/core/stage/stageObject/entity/ExtensionEntity";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { PenStroke } from "@/core/stage/stageObject/entity/PenStroke";
 import { ReferenceBlockNode } from "@/core/stage/stageObject/entity/ReferenceBlockNode";
 import { Section } from "@/core/stage/stageObject/entity/Section";
+import { LatexNode } from "@/core/stage/stageObject/entity/LatexNode";
 import { SvgNode } from "@/core/stage/stageObject/entity/SvgNode";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
 import { DetailsManager } from "@/core/stage/stageObject/tools/entityDetailsManager";
 import { Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
+import { ExtensionEntityRenderer } from "./ExtensionEntityRenderer";
 
 /**
  * 处理节点相关的绘制
@@ -19,8 +22,11 @@ import { Rectangle } from "@graphif/shapes";
 @service("entityRenderer")
 export class EntityRenderer {
   private sectionSortedZIndex: Section[] = [];
+  public extensionEntityRenderer: ExtensionEntityRenderer;
 
-  constructor(private readonly project: Project) {}
+  constructor(private readonly project: Project) {
+    this.extensionEntityRenderer = new ExtensionEntityRenderer(this.project);
+  }
 
   /**
    * 对所有section排序一次
@@ -36,7 +42,7 @@ export class EntityRenderer {
   private tickNumber = 0;
 
   renderAllSectionsBackground(viewRectangle: Rectangle) {
-    if (this.sectionSortedZIndex.length != this.project.stageManager.getSections().length) {
+    if (this.sectionSortedZIndex.length !== this.project.stageManager.getSections().length) {
       this.sortSectionsByZIndex();
     } else {
       // 假设fps=60，则10秒更新一次
@@ -71,6 +77,9 @@ export class EntityRenderer {
     for (let z = this.sectionSortedZIndex.length - 1; z >= 0; z--) {
       const section = this.sectionSortedZIndex[z];
       if (this.project.renderer.isOverView(viewRectangle, section)) {
+        continue;
+      }
+      if (section.isHiddenBySectionCollapse) {
         continue;
       }
       if (Settings.sectionBitTitleRenderType === "cover") {
@@ -123,7 +132,7 @@ export class EntityRenderer {
       }
       this.project.sectionRenderer.render(section);
       // details右上角小按钮
-      if (this.project.camera.currentScale > 0.065) {
+      if (this.project.camera.currentScale > 0.065 && !section.isHiddenBySectionCollapse) {
         this.project.entityDetailsButtonRenderer.render(section);
       }
       this.renderEntityDebug(section);
@@ -159,8 +168,12 @@ export class EntityRenderer {
       this.renderPenStroke(entity);
     } else if (entity instanceof SvgNode) {
       this.project.svgNodeRenderer.render(entity);
+    } else if (entity instanceof LatexNode) {
+      this.project.latexNodeRenderer.render(entity);
     } else if (entity instanceof ReferenceBlockNode) {
       this.project.referenceBlockRenderer.render(entity);
+    } else if (entity instanceof ExtensionEntity) {
+      this.extensionEntityRenderer.render(entity);
     }
     // details右上角小按钮
     if (this.project.camera.currentScale > 0.065) {

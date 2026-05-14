@@ -5,7 +5,6 @@ import { Vector } from "@graphif/data-structures";
 import { serializable } from "@graphif/serializer";
 import { Line, Rectangle } from "@graphif/shapes";
 import { ConnectPoint } from "../entity/ConnectPoint";
-import { ImageNode } from "../entity/ImageNode";
 
 /**
  * 连接两个实体的有向边
@@ -49,47 +48,32 @@ export abstract class Edge extends ConnectableAssociation {
     const sourceRectangle = this.source.collisionBox.getRectangle();
     const targetRectangle = this.target.collisionBox.getRectangle();
 
-    const edgeCenterLine = new Line(
-      sourceRectangle.getInnerLocationByRateVector(this.sourceRectangleRate),
-      targetRectangle.getInnerLocationByRateVector(this.targetRectangleRate),
-    );
+    const sourceInner = sourceRectangle.getInnerLocationByRateVector(this.sourceRectangleRate);
+    const targetInner = targetRectangle.getInnerLocationByRateVector(this.targetRectangleRate);
+    const edgeCenterLine = new Line(sourceInner, targetInner);
     let startPoint: Vector;
     let endPoint: Vector;
 
-    // 检查是否是旧的默认值
-    const isOldDefaultRate = (rate: Vector): boolean => {
-      // 旧的默认值：中心、左、右、上、下
-      return (
-        (rate.x === 0.5 && rate.y === 0.5) || // 中心
-        (rate.x === 0.01 && rate.y === 0.5) || // 左
-        (rate.x === 0.99 && rate.y === 0.5) || // 右
-        (rate.x === 0.5 && rate.y === 0.01) || // 上
-        (rate.x === 0.5 && rate.y === 0.99) // 下
-      );
-    };
+    // Only the center rate (0.5, 0.5) requires computing the intersection with the
+    // bounding rectangle edge. All other rates use the exact rate position directly.
+    const isCenterRate = (rate: Vector): boolean => rate.x === 0.5 && rate.y === 0.5;
 
     if (this.source instanceof ConnectPoint) {
       startPoint = this.source.geometryCenter;
-    } else if (
-      (this.source instanceof ImageNode || this.source.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(this.sourceRectangleRate)
-    ) {
-      // 对于图片或引用块节点，如果是精确值（不是旧的默认值），直接使用内部位置
-      startPoint = edgeCenterLine.start;
+    } else if (!isCenterRate(this.sourceRectangleRate)) {
+      // Non-center rate: use exact edge center for sentinel values, or inner position for image/precise rates
+      startPoint = Edge.getExactEdgePositionByRate(sourceRectangle, this.sourceRectangleRate) ?? edgeCenterLine.start;
     } else {
-      // 否则渲染在外接矩形边缘上
+      // Center rate: clip to the bounding rectangle edge along the connection direction
       startPoint = sourceRectangle.getLineIntersectionPoint(edgeCenterLine);
     }
     if (this.target instanceof ConnectPoint) {
       endPoint = this.target.geometryCenter;
-    } else if (
-      (this.target instanceof ImageNode || this.target.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(this.targetRectangleRate)
-    ) {
-      // 对于图片或引用块节点，如果是精确值（不是旧的默认值），直接使用内部位置
-      endPoint = edgeCenterLine.end;
+    } else if (!isCenterRate(this.targetRectangleRate)) {
+      // Non-center rate: use exact edge center for sentinel values, or inner position for image/precise rates
+      endPoint = Edge.getExactEdgePositionByRate(targetRectangle, this.targetRectangleRate) ?? edgeCenterLine.end;
     } else {
-      // 否则渲染在外接矩形边缘上
+      // Center rate: clip to the bounding rectangle edge along the connection direction
       endPoint = targetRectangle.getLineIntersectionPoint(edgeCenterLine);
     }
     return new Line(startPoint, endPoint);
@@ -128,6 +112,40 @@ export abstract class Edge extends ConnectableAssociation {
     const startPoint = sourceRectangle.getLineIntersectionPoint(edgeCenterLine);
     const endPoint = targetRectangle.getLineIntersectionPoint(edgeCenterLine);
     return new Line(startPoint, endPoint);
+  }
+
+  /**
+   * 根据 rate 向量推算贝塞尔曲线的出发/到达法线方向。
+   * rate 直接编码了连接点所在的边，无需依赖点坐标与矩形边的精确相等比较。
+   * - rate.x === 0.01 → 左边缘 → (-1, 0)
+   * - rate.x === 0.99 → 右边缘 → (1, 0)
+   * - rate.y === 0.01 → 上边缘 → (0, -1)
+   * - rate.y === 0.99 → 下边缘 → (0, 1)
+   * - 其他（中心或图片内部精确位置）→ null，由调用方回退到其他逻辑
+   */
+  static getNormalVectorByRate(rate: Vector): Vector | null {
+    if (rate.x === 0.01) return new Vector(-1, 0);
+    if (rate.x === 0.99) return new Vector(1, 0);
+    if (rate.y === 0.01) return new Vector(0, -1);
+    if (rate.y === 0.99) return new Vector(0, 1);
+    return null;
+  }
+
+  /**
+   * 当 rate 是边缘哨兵值（0.01/0.99）时，返回该边缘的精确中心坐标，
+   * 避免 getInnerLocationByRateVector 产生的 width*0.01 偏移在大节点上可见。
+   * - rate.x === 0.01 → 左边缘中心
+   * - rate.x === 0.99 → 右边缘中心
+   * - rate.y === 0.01 → 上边缘中心
+   * - rate.y === 0.99 → 下边缘中心
+   * - 其他 → null，由调用方使用 getInnerLocationByRateVector 处理
+   */
+  static getExactEdgePositionByRate(rect: Rectangle, rate: Vector): Vector | null {
+    if (rate.x === 0.01) return rect.leftCenter;
+    if (rate.x === 0.99) return rect.rightCenter;
+    if (rate.y === 0.01) return rect.topCenter;
+    if (rate.y === 0.99) return rect.bottomCenter;
+    return null;
   }
 
   /** 线段上的文字相关 */
@@ -188,6 +206,20 @@ export abstract class Edge extends ConnectableAssociation {
       this.targetRectangleRate.x === 0.5 &&
       this.sourceRectangleRate.y === 0.5 &&
       this.targetRectangleRate.y === 0.5
+    );
+  }
+
+  /**
+   * 是否是非标准连线（端点位置不对应标准四方向，也不是默认中心方向）
+   * 例如：右侧发出 + 上侧接收，即混合了不同轴的端点
+   */
+  public isNonStandardDirection(): boolean {
+    return (
+      !this.isLeftToRight() &&
+      !this.isRightToLeft() &&
+      !this.isTopToBottom() &&
+      !this.isBottomToTop() &&
+      !this.isUnknownDirection()
     );
   }
 }

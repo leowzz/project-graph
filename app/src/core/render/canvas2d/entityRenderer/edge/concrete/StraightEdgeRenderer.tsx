@@ -8,11 +8,11 @@ import { Effect } from "@/core/service/feedbackService/effectEngine/effectObject
 import { Settings } from "@/core/service/Settings";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
+import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { ConnectPoint } from "@/core/stage/stageObject/entity/ConnectPoint";
-import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { Section } from "@/core/stage/stageObject/entity/Section";
+import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { SvgUtils } from "@/core/render/svg/SvgUtils";
-import { Renderer } from "@/core/render/canvas2d/renderer";
 import { EdgeRendererClass } from "@/core/render/canvas2d/entityRenderer/edge/EdgeRendererClass";
 
 /**
@@ -44,15 +44,7 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     const sourceRate = sourceRectangleRate ?? Vector.same(0.5);
     const targetRate = targetRectangleRate ?? Vector.same(0.5);
 
-    const isOldDefaultRate = (r: Vector): boolean => {
-      return (
-        (r.x === 0.5 && r.y === 0.5) ||
-        (r.x === 0.01 && r.y === 0.5) ||
-        (r.x === 0.99 && r.y === 0.5) ||
-        (r.x === 0.5 && r.y === 0.01) ||
-        (r.x === 0.5 && r.y === 0.99)
-      );
-    };
+    const isCenterRate = (r: Vector): boolean => r.x === 0.5 && r.y === 0.5;
 
     const sourceRect = startNode.collisionBox.getRectangle();
     const targetRect = toNode.collisionBox.getRectangle();
@@ -63,11 +55,8 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     let start: Vector;
     if (startNode instanceof ConnectPoint) {
       start = startNode.geometryCenter;
-    } else if (
-      (startNode instanceof ImageNode || startNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(sourceRate)
-    ) {
-      start = sourceInner;
+    } else if (!isCenterRate(sourceRate)) {
+      start = Edge.getExactEdgePositionByRate(sourceRect, sourceRate) ?? sourceInner;
     } else {
       start = sourceRect.getLineIntersectionPoint(line);
     }
@@ -75,11 +64,8 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     let end: Vector;
     if (toNode instanceof ConnectPoint) {
       end = toNode.geometryCenter;
-    } else if (
-      (toNode instanceof ImageNode || toNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(targetRate)
-    ) {
-      end = targetInner;
+    } else if (!isCenterRate(targetRate)) {
+      end = Edge.getExactEdgePositionByRate(targetRect, targetRate) ?? targetInner;
     } else {
       end = targetRect.getLineIntersectionPoint(line);
     }
@@ -131,46 +117,29 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
         Math.min(Math.max(rect1.width, rect1.height), Math.max(rect2.width, rect2.height)) / 100,
         100,
       );
+    } else if (edge.source instanceof TextNode) {
+      edgeWidth = edge.source.getBorderWidth();
     }
     const straightBodyLine = edge.bodyLine;
     const scaledWidth = edgeWidth * this.project.camera.currentScale;
 
-    if (edge.text.trim() === "") {
-      // 没有文字的边
-      this.renderLine(
-        this.project.renderer.transformWorld2View(straightBodyLine.start),
-        this.project.renderer.transformWorld2View(straightBodyLine.end),
-        edge,
-        scaledWidth,
-      );
-    } else {
-      // 有文字的边
-      const midPoint = straightBodyLine.midPoint();
-      const startHalf = new Line(straightBodyLine.start, midPoint);
-      const endHalf = new Line(midPoint, straightBodyLine.end);
-      this.project.textRenderer.renderMultiLineTextFromCenter(
-        edge.text,
-        this.project.renderer.transformWorld2View(midPoint),
-        Renderer.FONT_SIZE * this.project.camera.currentScale,
-        Infinity,
-        edgeColor,
-      );
-      const edgeTextRectangle = edge.textRectangle;
+    this.renderLine(
+      this.project.renderer.transformWorld2View(straightBodyLine.start),
+      this.project.renderer.transformWorld2View(straightBodyLine.end),
+      edge,
+      scaledWidth,
+    );
 
-      this.renderLine(
-        this.project.renderer.transformWorld2View(straightBodyLine.start),
-        this.project.renderer.transformWorld2View(edgeTextRectangle.getLineIntersectionPoint(startHalf)),
-        edge,
-        scaledWidth,
-      );
-      this.renderLine(
-        this.project.renderer.transformWorld2View(straightBodyLine.end),
-        this.project.renderer.transformWorld2View(edgeTextRectangle.getLineIntersectionPoint(endHalf)),
-        edge,
-        scaledWidth,
+    if (edge.text.trim() !== "") {
+      this.project.textRenderer.renderMultiLineTextFromCenterWithStroke(
+        edge.text,
+        this.project.renderer.transformWorld2View(straightBodyLine.midPoint()),
+        edge.textFontSize * this.project.camera.currentScale,
+        edgeColor,
+        this.project.stageStyleManager.currentStyle.Background,
       );
     }
-    if (!(edge.target instanceof ConnectPoint)) {
+    if (this.shouldRenderTargetArrow(edge)) {
       // 画箭头
       this.renderArrowHead(
         edge,
@@ -187,35 +156,30 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     const edgeColor = edge.color.equals(Color.Transparent)
       ? this.project.stageStyleManager.currentStyle.StageObjectBorder
       : edge.color;
-    if (edge.text.trim() === "") {
-      // 没有文字的边
-      lineBody = SvgUtils.line(edge.bodyLine.start, edge.bodyLine.end, edgeColor, 2);
-    } else {
-      // 有文字的边
-      const midPoint = edge.bodyLine.midPoint();
-      const startHalf = new Line(edge.bodyLine.start, midPoint);
-      const endHalf = new Line(midPoint, edge.bodyLine.end);
-      const edgeTextRectangle = edge.textRectangle;
+    lineBody = SvgUtils.line(edge.bodyLine.start, edge.bodyLine.end, edgeColor, 2);
 
-      textNode = SvgUtils.textFromCenter(edge.text, midPoint, Renderer.FONT_SIZE, edgeColor);
-      lineBody = (
-        <>
-          {SvgUtils.line(edge.bodyLine.start, edgeTextRectangle.getLineIntersectionPoint(startHalf), edgeColor, 2)}
-          {SvgUtils.line(edge.bodyLine.end, edgeTextRectangle.getLineIntersectionPoint(endHalf), edgeColor, 2)}
-        </>
+    if (edge.text.trim() !== "") {
+      textNode = SvgUtils.textFromCenterWithStroke(
+        edge.text,
+        edge.bodyLine.midPoint(),
+        edge.textFontSize,
+        edgeColor,
+        this.project.stageStyleManager.currentStyle.Background,
       );
     }
     // 加箭头
-    const arrowHead = this.project.edgeRenderer.generateArrowHeadSvg(
-      edge.bodyLine.end.clone(),
-      edge.target.collisionBox
-        .getRectangle()
-        .getCenter()
-        .subtract(edge.source.collisionBox.getRectangle().getCenter())
-        .normalize(),
-      15,
-      edgeColor,
-    );
+    const arrowHead = this.shouldRenderTargetArrow(edge)
+      ? this.project.edgeRenderer.generateArrowHeadSvg(
+          edge.bodyLine.end.clone(),
+          edge.target.collisionBox
+            .getRectangle()
+            .getCenter()
+            .subtract(edge.source.collisionBox.getRectangle().getCenter())
+            .normalize(),
+          15,
+          edgeColor,
+        )
+      : null;
     return (
       <>
         {lineBody}
@@ -238,6 +202,10 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     this.project.edgeRenderer.renderArrowHead(endPoint, direction, size, edgeColor);
   }
 
+  private shouldRenderTargetArrow(edge: LineEdge): boolean {
+    return !(Settings.hideArrowWhenPointingToConnectPoint && edge.target instanceof ConnectPoint);
+  }
+
   public renderShiftingState(edge: LineEdge): void {
     const shiftingMidPoint = edge.shiftingMidPoint;
     // 从source.Center到shiftingMidPoint的线
@@ -252,52 +220,38 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     const endPoint = targetRectangle.getLineIntersectionPoint(endLine);
     const scaledWidth = 2 * this.project.camera.currentScale;
 
-    if (edge.text.trim() === "") {
-      // 没有文字的边
-      this.renderLine(
-        this.project.renderer.transformWorld2View(startPoint),
-        this.project.renderer.transformWorld2View(shiftingMidPoint),
-        edge,
-        scaledWidth,
-      );
-      this.renderLine(
-        this.project.renderer.transformWorld2View(shiftingMidPoint),
-        this.project.renderer.transformWorld2View(endPoint),
-        edge,
-        scaledWidth,
-      );
-    } else {
-      // 有文字的边
+    this.renderLine(
+      this.project.renderer.transformWorld2View(startPoint),
+      this.project.renderer.transformWorld2View(shiftingMidPoint),
+      edge,
+      scaledWidth,
+    );
+    this.renderLine(
+      this.project.renderer.transformWorld2View(shiftingMidPoint),
+      this.project.renderer.transformWorld2View(endPoint),
+      edge,
+      scaledWidth,
+    );
+
+    if (edge.text.trim() !== "") {
       const edgeColor = edge.color.equals(Color.Transparent)
         ? this.project.stageStyleManager.currentStyle.StageObjectBorder
         : edge.color;
-      this.project.textRenderer.renderTextFromCenter(
+      this.project.textRenderer.renderMultiLineTextFromCenterWithStroke(
         edge.text,
         this.project.renderer.transformWorld2View(shiftingMidPoint),
-        Renderer.FONT_SIZE * this.project.camera.currentScale,
+        edge.textFontSize * this.project.camera.currentScale,
         edgeColor,
-      );
-      const edgeTextRectangle = edge.textRectangle;
-      const start2MidPoint = edgeTextRectangle.getLineIntersectionPoint(startLine);
-      const mid2EndPoint = edgeTextRectangle.getLineIntersectionPoint(endLine);
-      this.renderLine(
-        this.project.renderer.transformWorld2View(startPoint),
-        this.project.renderer.transformWorld2View(start2MidPoint),
-        edge,
-        scaledWidth,
-      );
-      this.renderLine(
-        this.project.renderer.transformWorld2View(mid2EndPoint),
-        this.project.renderer.transformWorld2View(endPoint),
-        edge,
-        scaledWidth,
+        this.project.stageStyleManager.currentStyle.Background,
       );
     }
-    this.renderArrowHead(
-      edge,
-      edge.target.collisionBox.getRectangle().getCenter().subtract(shiftingMidPoint).normalize(),
-      endPoint,
-    );
+    if (this.shouldRenderTargetArrow(edge)) {
+      this.renderArrowHead(
+        edge,
+        edge.target.collisionBox.getRectangle().getCenter().subtract(shiftingMidPoint).normalize(),
+        endPoint,
+      );
+    }
   }
 
   public renderCycleState(edge: LineEdge): void {
@@ -314,7 +268,13 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
       2 * this.project.camera.currentScale,
     );
     // 画箭头
-    this.renderArrowHead(edge, new Vector(1, 0).rotateDegrees(15), edge.target.collisionBox.getRectangle().leftCenter);
+    if (this.shouldRenderTargetArrow(edge)) {
+      this.renderArrowHead(
+        edge,
+        new Vector(1, 0).rotateDegrees(15),
+        edge.target.collisionBox.getRectangle().leftCenter,
+      );
+    }
     // 画文字
     if (edge.text.trim() === "") {
       // 没有文字的边
@@ -325,7 +285,7 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
       this.project.renderer.transformWorld2View(
         edge.target.collisionBox.getRectangle().location.add(new Vector(0, -50)),
       ),
-      Renderer.FONT_SIZE * this.project.camera.currentScale,
+      edge.textFontSize * this.project.camera.currentScale,
       edgeColor,
     );
   }
@@ -334,25 +294,14 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     const rate = sourceRectangleRate ?? Vector.same(0.5);
     const startRect = startNode.collisionBox.getRectangle();
 
-    const isOldDefaultRate = (r: Vector): boolean => {
-      return (
-        (r.x === 0.5 && r.y === 0.5) ||
-        (r.x === 0.01 && r.y === 0.5) ||
-        (r.x === 0.99 && r.y === 0.5) ||
-        (r.x === 0.5 && r.y === 0.01) ||
-        (r.x === 0.5 && r.y === 0.99)
-      );
-    };
+    const isCenterRate = (r: Vector): boolean => r.x === 0.5 && r.y === 0.5;
 
     const startInner = startRect.getInnerLocationByRateVector(rate);
     let start: Vector;
     if (startNode instanceof ConnectPoint) {
       start = startNode.geometryCenter;
-    } else if (
-      (startNode instanceof ImageNode || startNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(rate)
-    ) {
-      start = startInner;
+    } else if (!isCenterRate(rate)) {
+      start = Edge.getExactEdgePositionByRate(startRect, rate) ?? startInner;
     } else {
       start = startRect.getLineIntersectionPoint(new Line(startInner, mouseLocation));
     }
@@ -384,15 +333,7 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     const startRect = startNode.collisionBox.getRectangle();
     const endRect = endNode.collisionBox.getRectangle();
 
-    const isOldDefaultRate = (r: Vector): boolean => {
-      return (
-        (r.x === 0.5 && r.y === 0.5) ||
-        (r.x === 0.01 && r.y === 0.5) ||
-        (r.x === 0.99 && r.y === 0.5) ||
-        (r.x === 0.5 && r.y === 0.01) ||
-        (r.x === 0.5 && r.y === 0.99)
-      );
-    };
+    const isCenterRate = (r: Vector): boolean => r.x === 0.5 && r.y === 0.5;
 
     const startInner = startRect.getInnerLocationByRateVector(sourceRate);
     const endInner = endRect.getInnerLocationByRateVector(targetRate);
@@ -401,11 +342,8 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     let start: Vector;
     if (startNode instanceof ConnectPoint) {
       start = startNode.geometryCenter;
-    } else if (
-      (startNode instanceof ImageNode || startNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(sourceRate)
-    ) {
-      start = startInner;
+    } else if (!isCenterRate(sourceRate)) {
+      start = Edge.getExactEdgePositionByRate(startRect, sourceRate) ?? startInner;
     } else {
       start = startRect.getLineIntersectionPoint(line);
     }
@@ -413,11 +351,8 @@ export class StraightEdgeRenderer extends EdgeRendererClass {
     let end: Vector;
     if (endNode instanceof ConnectPoint) {
       end = endNode.geometryCenter;
-    } else if (
-      (endNode instanceof ImageNode || endNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(targetRate)
-    ) {
-      end = endInner;
+    } else if (!isCenterRate(targetRate)) {
+      end = Edge.getExactEdgePositionByRate(endRect, targetRate) ?? endInner;
     } else {
       end = endRect.getLineIntersectionPoint(line);
     }

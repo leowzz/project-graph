@@ -1,211 +1,118 @@
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import Markdown from "@/components/ui/markdown";
 import { Textarea } from "@/components/ui/textarea";
-import { AITools } from "@/core/service/dataManageService/aiEngine/AITools";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Project } from "@/core/Project";
+import type { AIMessageMetadata } from "@/core/service/dataManageService/aiEngine/AIEngine";
 import { Settings } from "@/core/service/Settings";
 import { SubWindow } from "@/core/service/SubWindow";
-import { activeProjectAtom } from "@/state";
-import SettingsWindow from "@/sub/SettingsWindow";
-import { Vector } from "@graphif/data-structures";
+import { activeTabAtom } from "@/state";
+import { cn } from "@/utils/cn";
+import { useChat } from "@ai-sdk/react";
+import { Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@radix-ui/react-collapsible";
+import type { UIMessage } from "ai";
 import { useAtom } from "jotai";
-import { Bot, BrainCircuit, ChevronRight, FolderOpen, Send, SettingsIcon, Square, User, Wrench } from "lucide-react";
-import OpenAI from "openai";
-import { useRef, useState } from "react";
+import { Bot, Check, ChevronRight, FolderOpen, Paperclip, Send, Sparkles, Square, User, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { getOriginalNameOf } from "virtual:original-class-name";
 
-export default function AIWindow() {
-  const [project] = useAtom(activeProjectAtom);
+let pendingInitialText: string | null = null;
+let pendingInitialPrompt: string | null = null;
+
+export function setAIWindowInitialText(text: string, prompt?: string) {
+  pendingInitialText = text;
+  pendingInitialPrompt = prompt || null;
+}
+
+export default function AIWindow({ winId = "" }: { winId?: string }) {
+  const [tab] = useAtom(activeTabAtom);
+  const project = tab instanceof Project ? tab : undefined;
+
+  if (!project) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+        <FolderOpen className="text-muted-foreground size-10" />
+        <div className="font-medium">请先打开一个文件</div>
+        <div className="text-muted-foreground max-w-64 text-sm">
+          AI 工具需要当前画布上下文，打开文件后就可以帮你创建、整理和修改节点。
+        </div>
+      </div>
+    );
+  }
+
+  return <AIChatPanel key={project.uri.toString()} project={project} winId={winId} />;
+}
+
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function getContrastTextColor(bg: Color): string {
+  const luminance = (0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b) / 255;
+  return luminance > 0.6 ? "#000" : "#fff";
+}
+
+function isEntity(
+  obj: unknown,
+): obj is { isSelected: boolean; collisionBox: { getRectangle(): Rectangle }; color?: Color } {
+  return typeof obj === "object" && obj !== null && "isSelected" in obj && "collisionBox" in obj;
+}
+
+function AIChatPanel({ project, winId }: { project: Project; winId: string }) {
   const [inputValue, setInputValue] = useState("");
-  const [messages, setMessages] = useState<(OpenAI.ChatCompletionMessageParam & { tokens?: number })[]>([
-    {
-      role: "system",
-      content:
-        "尽可能尝试使用工具解决问题，如果实在不行才能问用户。TextNode正常情况下高度为75，多个节点叠起来时需要适当留padding。节点正常情况下的颜色应该是透明[0,0,0,0]，注意透明色并非是“看不见文本”",
-    },
-  ]);
-  const [requesting, setRequesting] = useState(false);
-  const [totalInputTokens, setTotalInputTokens] = useState(0);
-  const [totalOutputTokens, setTotalOutputTokens] = useState(0);
-  const [executingToolIds, setExecutingToolIds] = useState<Set<string>>(new Set());
   const messagesElRef = useRef<HTMLDivElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const [showTokenCount] = Settings.use("aiShowTokenCount");
+  const transport = useMemo(() => project.aiEngine.createTransport(project), [project]);
+  const [selectedCount, setSelectedCount] = useState(0);
 
-  /**
-   * 添加一条消息到消息列表中
-   * @param message
-   */
-  function addMessage(message: OpenAI.ChatCompletionMessageParam & { tokens?: number }) {
-    setMessages((prev) => [...prev, message]);
-  }
-  function setLastMessage(msg: OpenAI.ChatCompletionMessageParam) {
-    setMessages((prev) => {
-      const newMessages = [...prev];
-      newMessages[newMessages.length - 1] = msg;
-      return newMessages;
-    });
-  }
+  const { messages, sendMessage, stop, status, error } = useChat<UIMessage<AIMessageMetadata>>({
+    transport,
+    experimental_throttle: 50,
+    onError: (err) => {
+      toast.error(`AI 请求失败: ${err.message || err.toString() || JSON.stringify(err)}`);
+    },
+  });
+  const requesting = status === "submitted" || status === "streaming";
+  const tokenUsage = useMemo(() => getTokenUsage(messages), [messages]);
 
-  function scrollToBottom() {
-    if (messagesElRef.current) {
-      messagesElRef.current.scrollTo({ top: messagesElRef.current.scrollHeight });
+  useEffect(() => {
+    messagesElRef.current?.scrollTo({ top: messagesElRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
+
+  useEffect(() => {
+    if (error) console.error("AI Chat state error:", error);
+  }, [error]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSelectedCount(project.stageManager.getSelectedEntities().length);
+    }, 300);
+    return () => clearInterval(interval);
+  }, [project]);
+
+  useEffect(() => {
+    if (pendingInitialText) {
+      const text = pendingInitialText;
+      const prompt = pendingInitialPrompt;
+      pendingInitialText = null;
+      pendingInitialPrompt = null;
+
+      if (prompt) {
+        setInputValue(`${prompt}\n\n---\n\n${text}`);
+      } else {
+        setInputValue(text);
+      }
     }
-  }
-
-  async function run(msgs: OpenAI.ChatCompletionMessageParam[] = [...messages, { role: "user", content: inputValue }]) {
-    if (!project) return;
-    scrollToBottom();
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-    setRequesting(true);
-    try {
-      // 清理消息：移除空的 tool_calls 数组
-      const cleanedMsgs = msgs.map((msg) => {
-        if (msg.role === "assistant" && Array.isArray(msg.tool_calls) && msg.tool_calls.length === 0) {
-          // 创建新对象，删除 tool_calls 字段
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { tool_calls, ...rest } = msg;
-          return rest;
-        }
-        return msg;
-      });
-      const stream = await project.aiEngine.chat(cleanedMsgs, abortController.signal);
-      addMessage({
-        role: "assistant",
-        content: "Requesting...",
-      });
-      const streamingMsg: OpenAI.ChatCompletionAssistantMessageParam = {
-        role: "assistant",
-        content: "",
-      };
-      let lastChunk: OpenAI.ChatCompletionChunk | null = null;
-      for await (const chunk of stream) {
-        // 当 stream_options.include_usage=true 时，最后一个 chunk 的 choices 为空数组，仅携带 usage
-        if (!chunk.choices || chunk.choices.length === 0) {
-          lastChunk = chunk;
-          continue;
-        }
-        const delta = chunk.choices[0].delta;
-        streamingMsg.content! += delta.content ?? "";
-        const toolCalls = delta.tool_calls || [];
-
-        // 如果有工具调用，确保 tool_calls 数组已初始化
-        if (toolCalls.length > 0 && streamingMsg.tool_calls === undefined) {
-          streamingMsg.tool_calls = [];
-        }
-
-        for (const toolCall of toolCalls) {
-          // 此时 tool_calls 数组一定存在
-          const index =
-            toolCall.index !== undefined
-              ? toolCall.index
-              : toolCall.type
-                ? streamingMsg.tool_calls!.length
-                : streamingMsg.tool_calls!.length - 1;
-
-          // 确保索引有效
-          if (index >= streamingMsg.tool_calls!.length) {
-            streamingMsg.tool_calls![index] = {
-              id: toolCall.id || crypto.randomUUID(),
-              type: "function",
-              function: {
-                name: "",
-                arguments: "",
-              },
-            };
-          }
-
-          // 更新工具调用信息
-          if (toolCall.id) streamingMsg.tool_calls![index].id = toolCall.id;
-          if (toolCall.function?.name) streamingMsg.tool_calls![index].function.name += toolCall.function.name;
-          if (toolCall.function?.arguments)
-            streamingMsg.tool_calls![index].function.arguments += toolCall.function.arguments;
-        }
-
-        setLastMessage(streamingMsg);
-        scrollToBottom();
-        lastChunk = chunk;
-      }
-      setRequesting(false);
-      abortControllerRef.current = null;
-      if (!lastChunk) return;
-      if (!lastChunk.usage) return;
-      setTotalInputTokens((v) => v + lastChunk.usage!.prompt_tokens);
-      setTotalOutputTokens((v) => v + lastChunk.usage!.completion_tokens);
-      scrollToBottom();
-      // 如果有工具调用，执行工具调用
-      console.log(streamingMsg.tool_calls);
-      if (streamingMsg.tool_calls && streamingMsg.tool_calls.length > 0) {
-        const toolMsgs: OpenAI.ChatCompletionToolMessageParam[] = [];
-        for (const toolCall of streamingMsg.tool_calls) {
-          // 添加工具ID到执行中集合
-          setExecutingToolIds((prev) => new Set([...prev, toolCall.id!]));
-          const tool = AITools.handlers.get(toolCall.function.name);
-          if (!tool) {
-            setExecutingToolIds((prev) => {
-              const newSet = new Set(prev);
-              newSet.delete(toolCall.id!);
-              return newSet;
-            });
-            return;
-          }
-          let observation = "";
-          try {
-            const result = await tool(project, JSON.parse(toolCall.function.arguments));
-            if (typeof result === "string") {
-              observation = result;
-            } else if (typeof result === "object") {
-              observation = JSON.stringify(result);
-            } else {
-              observation = String(result);
-            }
-          } catch (e) {
-            observation = `工具调用失败：${(e as Error).message}`;
-          } finally {
-            // 无论成功还是失败，都从执行中集合移除
-            setExecutingToolIds((prev) => {
-              const newSet = new Set(prev);
-              newSet.delete(toolCall.id!);
-              return newSet;
-            });
-          }
-          const msg = {
-            role: "tool" as const,
-            content: observation,
-            tool_call_id: toolCall.id!,
-          };
-          addMessage(msg);
-          toolMsgs.push(msg);
-        }
-        // 工具调用结束后，重新发送消息，让模型继续思考
-        run([...msgs, streamingMsg, ...toolMsgs]);
-      }
-    } catch (e) {
-      setRequesting(false);
-      abortControllerRef.current = null;
-      if ((e as Error).name === "AbortError") return;
-      if (e instanceof Error) {
-        console.error(e);
-      }
-      toast.error(String(e));
-      addMessage({
-        role: "assistant",
-        content: String(e),
-      });
-    }
-  }
+  }, []);
 
   function handleUserSend() {
-    if (!inputValue.trim()) return;
-    addMessage({ role: "user", content: inputValue });
+    const text = inputValue.trim();
+    if (!text || requesting) return;
+    const selectedEntities = project.stageManager.getSelectedEntities();
+    const prefix = selectedEntities.length > 0 ? selectedEntities.map((it) => `\`${it.uuid}\``).join(" ") : "";
+    sendMessage({ text: prefix + text });
     setInputValue("");
-    run();
-  }
-
-  function handleStop() {
-    abortControllerRef.current?.abort();
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -213,108 +120,301 @@ export default function AIWindow() {
       e.preventDefault();
       handleUserSend();
     }
-    // shift+enter 允许默认行为（换行）
   }
 
-  return project ? (
-    <div className="flex h-full flex-col p-2">
-      {/* 消息列表 */}
-      <div className="flex flex-1 cursor-text select-text flex-col gap-2 overflow-y-auto" ref={messagesElRef}>
-        {messages.map((msg, i) =>
-          msg.role === "user" ? (
-            <div key={i} className="flex justify-end">
-              <div className="max-w-11/12 bg-accent text-accent-foreground cursor-text select-text rounded-2xl rounded-br-none px-3 py-2">
-                {msg.content as string}
-              </div>
-            </div>
-          ) : msg.role === "assistant" ? (
-            <div key={i} className="flex cursor-text select-text flex-col gap-2">
-              {msg.content && typeof msg.content === "string" && (
-                <>
-                  {msg.content.startsWith("<think>") && (
-                    <Collapsible className="group/collapsible" defaultOpen={!msg.content.includes("</think>")}>
-                      <CollapsibleTrigger className="flex items-center gap-2">
-                        <BrainCircuit />
-                        <span>思考中</span>
-                        <ChevronRight className="transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="animate-none! mt-2 cursor-text select-text rounded-lg border px-3 py-2 opacity-50">
-                        <span className="cursor-text select-text text-sm">
-                          <Markdown source={msg.content.split("<think>")[1].split("</think>")[0]} />
-                        </span>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  )}
-                  <Markdown
-                    source={msg.content.includes("</think>") ? msg.content.split("</think>")[1] : msg.content}
-                  />
-                </>
-              )}
-              {msg.tool_calls &&
-                msg.tool_calls.map((toolCall) => (
-                  <Collapsible className="group/collapsible" key={toolCall.id}>
-                    <CollapsibleTrigger
-                      className={`flex cursor-pointer items-center gap-2 ${executingToolIds.has(toolCall.id!) ? "animate-blink" : ""}`}
-                    >
-                      <Wrench />
-                      <span>{toolCall.function.name}</span>
-                      <ChevronRight className="transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="animate-none! mt-2 cursor-text select-text rounded-lg border px-3 py-2 opacity-50">
-                      <div className="cursor-text select-text overflow-visible whitespace-pre-wrap break-words text-sm">
-                        <Markdown source={`\`\`\`json\n${toolCall.function.arguments}\n\`\`\``} />
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                ))}
-            </div>
-          ) : (
-            <></>
-          ),
-        )}
+  const UuidCode = useCallback(
+    ({ children, ...props }: any) => {
+      const text = typeof children === "string" ? children : String(children ?? "");
+
+      if (!UUID_V4_RE.test(text)) {
+        return <code {...props}>{children}</code>;
+      }
+
+      const stageObject = project.stageManager.get(text);
+      if (!stageObject || !isEntity(stageObject)) {
+        return <code {...props}>{children}</code>;
+      }
+
+      const hasColor = "color" in stageObject && stageObject.color instanceof Color;
+      const bgColor = hasColor ? (stageObject.color as Color).toHexStringWithoutAlpha() : undefined;
+      const textColor = hasColor ? getContrastTextColor(stageObject.color as Color) : undefined;
+
+      const hasText = "text" in stageObject && typeof stageObject.text === "string";
+      const textPreview = hasText
+        ? `${(stageObject.text as string).split("\n")[0]} `
+        : `${getOriginalNameOf(stageObject.constructor)} ${text}`;
+
+      const handleClick = () => {
+        project.stageManager.clearSelectAll();
+        stageObject.isSelected = true;
+        const center = stageObject.collisionBox.getRectangle().center;
+        project.camera.bombMove(center);
+      };
+
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className="hover:ring-primary/50 inline-flex cursor-pointer items-center rounded px-1.5 py-0.5 text-xs transition-all hover:ring-2"
+              style={bgColor ? { backgroundColor: bgColor, color: textColor } : undefined}
+              onClick={handleClick}
+            >
+              {textPreview}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{text}</TooltipContent>
+        </Tooltip>
+      );
+    },
+    [project],
+  );
+
+  const markdownComponents = useMemo(() => ({ code: UuidCode }), [UuidCode]);
+
+  return (
+    <div className="from-background via-background to-muted/30 flex h-full flex-col bg-gradient-to-b">
+      <div data-pg-drag-region className="border-border/70 flex items-center gap-3 border-b px-3 py-2">
+        <div className="bg-primary/10 text-primary flex size-8 items-center justify-center rounded-xl">
+          <Sparkles className="size-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold">Project Graph AI</div>
+          <div className="text-muted-foreground truncate text-xs">{Settings.aiModel}</div>
+        </div>
+        <X
+          className="text-muted-foreground hover:text-foreground size-5 cursor-pointer"
+          onClick={() => SubWindow.close(winId)}
+        />
       </div>
-      {/* 输入框 */}
-      <div className="mb-2 flex gap-2">
-        <SettingsIcon className="cursor-pointer" onClick={() => SettingsWindow.open("settings")} />
-        {showTokenCount && (
-          <>
-            <div className="flex-1"></div>
-            <User />
-            <span>{totalInputTokens}</span>
-            <Bot />
-            <span>{totalOutputTokens}</span>
-          </>
-        )}
-        <div className="flex-1"></div>
-        {requesting ? (
-          <Button className="cursor-pointer" onClick={handleStop}>
-            <Square />
-          </Button>
+
+      <div ref={messagesElRef} className="flex-1 overflow-y-auto px-3 py-4">
+        {messages.length === 0 ? (
+          <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 text-center">
+            <Bot className="size-10" />
+            <div className="text-foreground font-medium">说说你想怎么改这张图</div>
+            <div className="max-w-72 text-sm">
+              例如：整理当前选中的节点、生成一棵知识树、批量改颜色，或者让它先读取画布再规划。
+            </div>
+          </div>
         ) : (
-          <Button className="cursor-pointer" onClick={handleUserSend}>
-            <Send />
-          </Button>
+          <div className="flex flex-col gap-4">
+            {messages.map((message) => (
+              <MessageBubble key={message.id} message={message as any} components={markdownComponents} />
+            ))}
+          </div>
         )}
       </div>
-      <Textarea
-        placeholder="What can I say?"
-        onChange={(e) => setInputValue(e.target.value)}
-        onKeyDown={handleKeyDown}
-        value={inputValue}
-      />
-    </div>
-  ) : (
-    <div className="flex flex-col gap-2 p-8">
-      <FolderOpen />
-      请先打开一个文件
+
+      <div className="border-border/70 border-t p-3">
+        <div className="mb-2 flex items-center gap-2 text-xs">
+          {selectedCount > 0 && (
+            <>
+              <Paperclip className="size-3.5" />
+              <span>已选中 {selectedCount} 个节点</span>
+            </>
+          )}
+          {showTokenCount && (
+            <Tooltip>
+              <TooltipTrigger>
+                <div className="text-muted-foreground flex items-center gap-1.5">
+                  <User className="size-3.5" />
+                  <span>{formatTokenCount(tokenUsage.inputTokens)}</span>
+                  <span></span>
+                  <Bot className="size-3.5" />
+                  <span>{formatTokenCount(tokenUsage.outputTokens)}</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Token 数量仅供参考，请以服务商实际计费为准</TooltipContent>
+            </Tooltip>
+          )}
+          <div className="flex-1" />
+          <span className="text-muted-foreground">{requesting ? "正在思考" : "准备就绪"}</span>
+          {requesting ? (
+            <Button size="sm" variant="outline" className="h-8 cursor-pointer" onClick={stop}>
+              <Square className="size-4" />
+            </Button>
+          ) : (
+            <Button size="sm" className="h-8 cursor-pointer" onClick={handleUserSend} disabled={!inputValue.trim()}>
+              <Send className="size-4" />
+            </Button>
+          )}
+        </div>
+        <Textarea
+          placeholder="让 AI 读取画布、创建节点、连线、整理选区..."
+          className="max-h-36 resize-none"
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          value={inputValue}
+          disabled={requesting}
+        />
+      </div>
     </div>
   );
 }
 
+function getTokenUsage(messages: UIMessage<AIMessageMetadata>[]) {
+  return messages.reduce(
+    (usage, message) => {
+      usage.inputTokens += message.metadata?.inputTokens ?? 0;
+      usage.outputTokens += message.metadata?.outputTokens ?? 0;
+      usage.totalTokens += message.metadata?.totalTokens ?? 0;
+      return usage;
+    },
+    { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+  );
+}
+
+function formatTokenCount(value: number) {
+  return value.toLocaleString();
+}
+
+function MessageBubble({
+  message,
+  components,
+}: {
+  message: any;
+  components?: Record<string, React.ComponentType<any>>;
+}) {
+  const isUser = message.role === "user";
+  const parts = Array.isArray(message.parts) ? message.parts : [];
+  const bubbles = isUser ? [parts] : splitPartsByStepStart(parts);
+
+  return (
+    <div className={cn("flex gap-2", isUser ? "justify-end" : "justify-start")}>
+      {!isUser && (
+        <div className="bg-primary/10 text-primary mt-1 flex size-7 shrink-0 items-center justify-center rounded-full">
+          <Bot className="size-4" />
+        </div>
+      )}
+      <div className={cn("flex max-w-[88%] flex-col gap-2", isUser ? "items-end" : "items-start")}>
+        {bubbles.length > 0 ? (
+          bubbles.map((bubbleParts, bubbleIndex) => (
+            <div
+              key={bubbleIndex}
+              className={cn(
+                "flex cursor-text flex-col gap-2 rounded-2xl px-3 py-2 text-sm select-text",
+                isUser
+                  ? "bg-accent text-accent-foreground rounded-br-md"
+                  : "bg-card border-border/70 rounded-bl-md border shadow-sm",
+              )}
+            >
+              {bubbleParts.length > 0 ? (
+                bubbleParts.map((part: any, index: number) => (
+                  <MessagePart
+                    key={part.toolCallId ?? `${part.type}-${bubbleIndex}-${index}`}
+                    part={part}
+                    components={components}
+                  />
+                ))
+              ) : (
+                <Markdown source={String(message.content ?? "")} components={components} />
+              )}
+            </div>
+          ))
+        ) : (
+          <div
+            className={cn(
+              "cursor-text rounded-2xl px-3 py-2 text-sm select-text",
+              isUser
+                ? "bg-accent text-accent-foreground rounded-br-md"
+                : "bg-card border-border/70 rounded-bl-md border shadow-sm",
+            )}
+          >
+            <Markdown source={String(message.content ?? "")} components={components} />
+          </div>
+        )}
+      </div>
+      {isUser && (
+        <div className="bg-accent text-accent-foreground mt-1 flex size-7 shrink-0 items-center justify-center rounded-full">
+          <User className="size-4" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function splitPartsByStepStart(parts: any[]) {
+  const bubbles: any[][] = [];
+  let current: any[] = [];
+
+  for (const part of parts) {
+    if (part.type === "step-start") {
+      if (current.length > 0) {
+        bubbles.push(current);
+        current = [];
+      }
+      continue;
+    }
+    current.push(part);
+  }
+
+  if (current.length > 0) {
+    bubbles.push(current);
+  }
+
+  return bubbles;
+}
+
+function MessagePart({ part, components }: { part: any; components?: Record<string, React.ComponentType<any>> }) {
+  if (part.type === "text") {
+    return <Markdown source={part.text ?? ""} components={components} />;
+  }
+  if (part.type === "reasoning") {
+    return (
+      <div className="text-muted-foreground border-l-2 pl-2 text-xs leading-relaxed">{part.text ?? part.reasoning}</div>
+    );
+  }
+  if (typeof part.type === "string" && part.type.startsWith("tool-")) {
+    return <ToolPart part={part} />;
+  }
+  return (
+    <pre className="text-muted-foreground overflow-auto text-xs">unknown part: {JSON.stringify(part, null, 2)}</pre>
+  );
+}
+
+function ToolPart({ part }: { part: any }) {
+  const name = part.type.replace(/^tool-/, "");
+  const done = part.state === "output-available";
+  const failed = part.state === "output-error";
+
+  return (
+    <Collapsible className="group/collapsible">
+      <CollapsibleTrigger className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-2 text-xs">
+        {done ? <Check className="size-4" /> : <X className={cn("size-4", failed && "text-destructive")} />}
+        <span>{name}</span>
+        <span>{toolStateText(part.state)}</span>
+        <ChevronRight className="size-3 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="bg-muted/60 mt-2 animate-none! rounded-lg px-3 py-2">
+        <Markdown
+          source={`\`\`\`json\n${JSON.stringify({ input: part.input, output: part.output, error: part.errorText }, null, 2)}\n\`\`\``}
+        />
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function toolStateText(state: string | undefined) {
+  switch (state) {
+    case "input-streaming":
+      return "准备参数";
+    case "input-available":
+      return "执行中";
+    case "output-available":
+      return "完成";
+    case "output-error":
+      return "失败";
+    default:
+      return state ?? "";
+  }
+}
+
 AIWindow.open = () => {
   SubWindow.create({
-    title: "AI",
+    title: "",
+    closable: false,
+    titleBarOverlay: true,
     children: <AIWindow />,
-    rect: new Rectangle(new Vector(8, 88), new Vector(350, window.innerHeight - 96)),
+    rect: new Rectangle(new Vector(8, 88), new Vector(380, window.innerHeight - 96)),
   });
 };

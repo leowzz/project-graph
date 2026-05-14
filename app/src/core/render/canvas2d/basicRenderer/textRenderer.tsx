@@ -264,6 +264,47 @@ export class TextRenderer {
     }
   }
 
+  /**
+   * 从中心位置绘制带描边的多行文本。
+   * 描边颜色通常设为背景色，用于让文字"压住"穿过它的连线，
+   * 比矩形遮罩更简洁且不依赖坐标求交。
+   */
+  renderMultiLineTextFromCenterWithStroke(
+    text: string,
+    centerLocation: Vector,
+    size: number,
+    fillColor: Color,
+    strokeColor: Color,
+    limitWidth: number = Infinity,
+    lineHeight: number = 1.2,
+  ): void {
+    if (text.trim().length === 0) return;
+    if (Settings.textIntegerLocationAndSizeRender) {
+      centerLocation = centerLocation.toInteger();
+      size = Math.round(size);
+    }
+    text = Settings.protectingPrivacy ? replaceTextWhenProtect(text) : text;
+    const textLineArray = this.textToTextArrayWrapCache(text, size, limitWidth);
+    const ctx = this.project.canvas.ctx;
+
+    ctx.save();
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
+    ctx.font = `${size}px normal ${FONT}`;
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = strokeColor.toString();
+    ctx.lineWidth = size * 0.4;
+    ctx.fillStyle = fillColor.toString();
+
+    for (let i = 0; i < textLineArray.length; i++) {
+      const line = textLineArray[i];
+      const y = centerLocation.y + (i - (textLineArray.length - 1) / 2) * size * lineHeight;
+      ctx.strokeText(line, centerLocation.x, y);
+      ctx.fillText(line, centerLocation.x, y);
+    }
+    ctx.restore();
+  }
+
   renderMultiLineTextFromCenter(
     text: string,
     centerLocation: Vector,

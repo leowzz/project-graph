@@ -10,6 +10,7 @@ import { cn } from "@/utils/cn";
 import _ from "lodash";
 import { ChevronRight, RotateCw } from "lucide-react";
 import React, { CSSProperties, Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 export function SettingField({ settingKey, extra = <></> }: { settingKey: keyof Settings; extra?: React.ReactNode }) {
@@ -40,65 +41,75 @@ export function SettingField({ settingKey, extra = <></> }: { settingKey: keyof 
   // @ts-expect-error fuck ts
   const Icon = settingsIcons[settingKey] ?? Fragment;
 
+  // 解包 ZodDefault 拿到 innerType 和 defaultValue
+  // Zod v4: _def.typeName 已废弃，改用 _def.type（值为小写，如 "boolean"/"number"/"string"/"union"）
+  const innerType = (schema as any)._def.innerType;
+  const innerTypeName: string = innerType._def.type ?? "";
+  const bag = innerType._zod?.bag ?? {};
+
   return (
     <Field
       title={t(`${settingKey}.title`)}
       description={t(`${settingKey}.description`, { defaultValue: "" })}
       icon={<Icon />}
-      className="border-accent not-hover:rounded-none hover:bg-accent border-b transition"
+      className="border-accent hover:bg-accent border-b transition not-hover:rounded-none"
     >
       <RotateCw
-        className="text-panel-details-text h-4 w-4 cursor-pointer opacity-0 hover:rotate-180 group-hover/field:opacity-100"
-        onClick={() => setValue(schema._def.defaultValue)}
+        className="text-panel-details-text h-4 w-4 cursor-pointer opacity-0 group-hover/field:opacity-100 hover:rotate-180"
+        onClick={() => setValue((schema as any)._def.defaultValue)}
       />
       {extra}
-      {schema._def.innerType._def.typeName === "ZodString" ? (
+      {innerTypeName === "string" ? (
         <Input value={value} onChange={(e) => setValue(e.target.value)} className="w-64" />
-      ) : schema._def.innerType._def.typeName === "ZodNumber" &&
-        schema._def.innerType._def.checks.find((it) => it.kind === "min") &&
-        schema._def.innerType._def.checks.find((it) => it.kind === "max") ? (
+      ) : innerTypeName === "number" && bag.minimum !== undefined && bag.maximum !== undefined ? (
         <>
           <Slider
             value={[value]}
             onValueChange={([v]) => setValue(v)}
-            min={schema._def.innerType._def.checks.find((it) => it.kind === "min")?.value ?? 0}
-            max={schema._def.innerType._def.checks.find((it) => it.kind === "max")?.value ?? 1}
-            step={
-              schema._def.innerType._def.checks.find((it) => it.kind === "int")
-                ? 1
-                : (schema._def.innerType._def.checks.find((it) => it.kind === "multipleOf")?.value ?? 0.01)
-            }
+            min={bag.minimum}
+            max={bag.maximum}
+            step={bag.format === "safeint" ? 1 : 0.01}
             className="w-48"
           />
           <Input
             value={value}
-            onChange={(e) => setValue(parseFloat(e.target.value))}
+            onChange={(e) => {
+              const parsed = parseFloat(e.target.value);
+              if (Number.isNaN(parsed)) return;
+              const min = bag.minimum;
+              const max = bag.maximum;
+              if (parsed < min) {
+                toast.warning(`最小值为 ${min}，已自动修正`, { id: `field-clamp-${settingKey}`, duration: 2000 });
+              } else if (parsed > max) {
+                toast.warning(`最大值为 ${max}，已自动修正`, { id: `field-clamp-${settingKey}`, duration: 2000 });
+              }
+              setValue(Math.min(max, Math.max(min, parsed)));
+            }}
             type="number"
-            min={schema._def.innerType._def.checks.find((it) => it.kind === "min")?.value ?? 0}
-            max={schema._def.innerType._def.checks.find((it) => it.kind === "max")?.value ?? 1}
-            step={
-              schema._def.innerType._def.checks.find((it) => it.kind === "int")
-                ? 1
-                : (schema._def.innerType._def.checks.find((it) => it.kind === "multipleOf")?.value ?? 0.01)
-            }
+            min={bag.minimum}
+            max={bag.maximum}
+            step={bag.format === "safeint" ? 1 : 0.01}
             className="w-24"
           />
         </>
-      ) : schema._def.innerType._def.typeName === "ZodNumber" ? (
+      ) : innerTypeName === "number" ? (
         <Input value={value} onChange={(e) => setValue(e.target.valueAsNumber)} type="number" className="w-32" />
-      ) : schema._def.innerType._def.typeName === "ZodBoolean" ? (
+      ) : innerTypeName === "boolean" ? (
         <Switch checked={value} onCheckedChange={setValue} />
-      ) : schema._def.innerType._def.typeName === "ZodUnion" ? (
+      ) : innerTypeName === "union" ? (
         <Select value={value} onValueChange={setValue}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {schema._def.innerType._def.options.map(({ _def: { value: it } }) => (
-              <SelectItem key={it} value={it}>
-                {t(`${settingKey}.options.${it}`)}
-              </SelectItem>
-            ))}
+            {innerType._def.options.map((opt: any) => {
+              const it = opt._def.values?.[0] ?? opt._def.value;
+              return (
+                <SelectItem key={it} value={it}>
+                  {t(`${settingKey}.options.${it}`)}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       ) : (
@@ -260,7 +271,7 @@ export function FieldGroup({
   return (
     <div className={cn("flex w-full flex-col gap-2", className)}>
       <div
-        className="text-settings-text my-2 flex cursor-pointer items-center gap-2 pl-4 pt-4 text-sm opacity-60 hover:opacity-100"
+        className="text-settings-text my-2 flex cursor-pointer items-center gap-2 pt-4 pl-4 text-sm opacity-60 hover:opacity-100"
         onClick={handleToggle}
       >
         <span>{icon}</span>

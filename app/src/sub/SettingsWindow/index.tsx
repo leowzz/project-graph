@@ -1,19 +1,20 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SubWindow } from "@/core/service/SubWindow";
-import { activeProjectAtom, store } from "@/state";
+import { activeTabAtom, store } from "@/state";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { useState } from "react";
 import AboutTab from "./about";
 import AppearanceTab from "./appearance";
 import CreditsTab from "./credits";
+import ExtensionsTab from "./extensions";
 import KeyBindsPage from "./keybinds";
-import SettingsTab from "./settings";
-import ThemesTab from "./themes";
 import KeyBindsGlobalPage from "./keybindsGlobal";
 import QuickSettingsTab from "./quick-settings";
+import SettingsTab from "./settings";
+import ThemesTab from "./themes";
 
-type TabName = "settings" | "keybinds" | "appearance" | "about" | "quickSettings";
+type TabName = "settings" | "keybinds" | "appearance" | "about" | "quickSettings" | "extensions";
 
 export default function SettingsWindow({ defaultTab = "settings" }: { defaultTab?: TabName }) {
   const [currentTab, setCurrentTab] = useState<TabName>(defaultTab);
@@ -28,6 +29,7 @@ export default function SettingsWindow({ defaultTab = "settings" }: { defaultTab
           <TabsTrigger value="appearance">个性化</TabsTrigger>
           <TabsTrigger value="themes">主题</TabsTrigger>
           <TabsTrigger value="quickSettings">快捷设置</TabsTrigger>
+          <TabsTrigger value="extensions">扩展</TabsTrigger>
           <TabsTrigger value="about">关于</TabsTrigger>
           <TabsTrigger value="credits">鸣谢</TabsTrigger>
         </TabsList>
@@ -51,6 +53,9 @@ export default function SettingsWindow({ defaultTab = "settings" }: { defaultTab
       <TabsContent value="quickSettings" className="overflow-auto">
         <QuickSettingsTab />
       </TabsContent>
+      <TabsContent value="extensions" className="overflow-auto">
+        <ExtensionsTab />
+      </TabsContent>
       <TabsContent value="about" className="overflow-auto">
         <AboutTab />
       </TabsContent>
@@ -63,7 +68,7 @@ export default function SettingsWindow({ defaultTab = "settings" }: { defaultTab
 
 // TODO: page参数
 SettingsWindow.open = (tab: TabName = "settings") => {
-  store.get(activeProjectAtom)?.pause();
+  store.get(activeTabAtom)?.pause();
   SubWindow.create({
     children: <SettingsWindow defaultTab={tab} />,
     rect: Rectangle.inCenter(new Vector(innerWidth > 1653 ? 1240 : innerWidth * 0.75, innerHeight * 0.875)),

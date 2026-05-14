@@ -87,7 +87,7 @@ export class RectangleSelect {
     // 更新框选方向
     this.isSelectDirectionRight = this.selectStartLocation.x < this.selectEndLocation.x;
 
-    // 框选框在 section框中的限制情况
+    // 框选框在 分组框中的限制情况
     if (this.limitSection !== null) {
       this.selectingRectangle = Rectangle.getIntersectionRectangle(
         this.selectingRectangle,

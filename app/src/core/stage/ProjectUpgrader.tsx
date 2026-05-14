@@ -1,5 +1,5 @@
 import { Serialized } from "@/types/node";
-import { ProjectMetadata } from "@/types/metadata";
+import { PrgMetadata } from "@/types/metadata";
 import { Path } from "@/utils/path";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { v4 as uuidv4 } from "uuid";
@@ -11,7 +11,7 @@ import { DetailsManager } from "./stageObject/tools/entityDetailsManager";
 
 export namespace ProjectUpgrader {
   /** N系列的最新版本 */
-  export const NLatestVersion = "2.2.0";
+  export const NLatestVersion = "2.3.0";
 
   /**
    * 比较两个版本号字符串（格式：x.y.z）
@@ -361,7 +361,7 @@ export namespace ProjectUpgrader {
    * @param metadata 原始metadata
    * @returns 升级后的N版本数据和metadata
    */
-  export function upgradeNAnyToNLatest(data: any[], metadata: any): [any[], ProjectMetadata] {
+  export function upgradeNAnyToNLatest(data: any[], metadata: any): [any[], PrgMetadata] {
     const currentVersion = metadata?.version || "2.0.0";
 
     // 如果版本小于 2.1.0，需要升级
@@ -374,6 +374,11 @@ export namespace ProjectUpgrader {
       [data, metadata] = convertN2toN3(data, metadata);
     }
 
+    // 如果版本小于 2.3.0，需要升级
+    if (compareVersion(currentVersion, "2.3.0") < 0) {
+      [data, metadata] = convertN3toN4(data, metadata);
+    }
+
     return [data, metadata];
   }
 
@@ -383,7 +388,7 @@ export namespace ProjectUpgrader {
    * @param metadata 2.0.0版本metadata
    * @returns 2.1.0版本数据和metadata
    */
-  function convertN1toN2(data: any[], metadata: any): [any[], ProjectMetadata] {
+  function convertN1toN2(data: any[], metadata: any): [any[], PrgMetadata] {
     // 为LineEdge添加lineType属性，默认值为'solid'
     for (const item of data) {
       if (item._ === "LineEdge") {
@@ -402,7 +407,7 @@ export namespace ProjectUpgrader {
    * @param metadata 2.1.0版本metadata
    * @returns 2.2.0版本数据和metadata
    */
-  function convertN2toN3(data: any[], metadata: any): [any[], ProjectMetadata] {
+  function convertN2toN3(data: any[], metadata: any): [any[], PrgMetadata] {
     // 为TextNode添加fontScaleLevel属性，默认值为0
     for (const item of data) {
       if (item._ === "TextNode") {
@@ -415,8 +420,27 @@ export namespace ProjectUpgrader {
     return [data, { ...metadata, version: "2.2.0" }];
   }
 
+  /**
+   * 将 2.2.0 版本升级到 2.3.0 版本
+   * Section 新增 _collisionBoxNormal 字段用于保存空 Section 的位置信息。
+   * 旧版本没有此字段，加载时 Section 位置由子元素动态计算（有子元素时行为不变）。
+   * 空 Section 在旧版本本就无位置信息，升级时不需要补充，保持兼容即可。
+   * @param data 2.2.0版本数据
+   * @param metadata 2.2.0版本metadata
+   * @returns 2.3.0版本数据和metadata
+   */
+  function convertN3toN4(data: any[], metadata: any): [any[], PrgMetadata] {
+    return [data, { ...metadata, version: "2.3.0" }];
+  }
+
+  /**
+   * 升级1.x版本的json数据到 prg
+   * @param json
+   * @param uri
+   * @returns
+   */
   export async function convertVAnyToN1(json: Record<string, any>, uri: URI) {
-    // 升级json数据到最新版本
+    // 升级json数据到最新json版本
     json = ProjectUpgrader.upgradeVAnyToVLatest(json);
     let isHaveImageNode = false;
     const uuidMap = new Map<string, Record<string, any>>();
@@ -426,18 +450,40 @@ export namespace ProjectUpgrader {
     const basePath = new Path(uri.fsPath).parent;
 
     // Helper functions for repeated structures
-    const toColor = (colorArr: number[]) => ({
-      _: "Color",
-      r: colorArr[0],
-      g: colorArr[1],
-      b: colorArr[2],
-      a: colorArr[3],
-    });
-    const toVector = (vectorArr: number[]) => ({
-      _: "Vector",
-      x: vectorArr[0],
-      y: vectorArr[1],
-    });
+    const toColor = (colorArr?: number[]) => {
+      if (colorArr && colorArr.length === 4 && colorArr.every((c) => typeof c === "number")) {
+        return {
+          _: "Color",
+          r: colorArr[0],
+          g: colorArr[1],
+          b: colorArr[2],
+          a: colorArr[3],
+        };
+      } else {
+        return {
+          _: "Color",
+          r: 0,
+          g: 0,
+          b: 0,
+          a: 0,
+        };
+      }
+    };
+    const toVector = (vectorArr?: number[]) => {
+      if (vectorArr && vectorArr.length === 2 && vectorArr.every((c) => typeof c === "number")) {
+        return {
+          _: "Vector",
+          x: vectorArr[0],
+          y: vectorArr[1],
+        };
+      } else {
+        return {
+          _: "Vector",
+          x: 0,
+          y: 0,
+        };
+      }
+    };
 
     // Recursively convert all entities
     async function convertEntityVAnyToN1(

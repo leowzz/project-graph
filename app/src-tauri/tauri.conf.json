@@ -19,7 +19,7 @@
         "height": 800,
         "decorations": false,
         "transparent": true,
-        "visible": false
+        "visible": true
       },
       {
         "label": "splash",

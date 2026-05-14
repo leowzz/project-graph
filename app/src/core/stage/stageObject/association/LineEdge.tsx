@@ -1,9 +1,12 @@
 import { Project } from "@/core/Project";
 import { Renderer } from "@/core/render/canvas2d/renderer";
+import { Settings } from "@/core/service/Settings";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { EdgeCollisionBoxGetter } from "@/core/stage/stageObject/association/EdgeCollisionBoxGetter";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
+import { Section } from "@/core/stage/stageObject/entity/Section";
+import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { getMultiLineTextSize } from "@/utils/font";
 import { Color, Vector } from "@graphif/data-structures";
 import { id, passExtraAtArg1, passObject, serializable } from "@graphif/serializer";
@@ -27,16 +30,18 @@ export class LineEdge extends Edge {
   }
 
   /**
-   * 是否是偏移状态
-   * 偏移是为双向线准备的 A->B, B->A，防止重叠
+   * 几何组偏移索引（运行时计算，非持久化）
+   * 0 = 正常直线/曲线
+   * 正负整数 = 向垂直方向偏移，用于同几何组的多重边自动散开
+   * 取代旧的 isShifting boolean，逻辑被几何组方案完全包含
    */
-  get isShifting(): boolean {
-    return this._isShifting;
+  get shiftingIndex(): number {
+    return this._shiftingIndex;
   }
-  set isShifting(value: boolean) {
-    this._isShifting = value;
+  set shiftingIndex(value: number) {
+    this._shiftingIndex = value;
   }
-  private _isShifting: boolean = false;
+  private _shiftingIndex: number = 0;
 
   constructor(
     protected readonly project: Project,
@@ -77,15 +82,31 @@ export class LineEdge extends Edge {
     this.adjustSizeByText();
   }
 
+  /** 与渲染器保持一致的线宽，用于字号等比缩放 */
+  get edgeWidth(): number {
+    if (Settings.enableAutoEdgeWidth && this.target instanceof Section && this.source instanceof Section) {
+      const rect1 = this.source.collisionBox.getRectangle();
+      const rect2 = this.target.collisionBox.getRectangle();
+      return Math.min(Math.min(Math.max(rect1.width, rect1.height), Math.max(rect2.width, rect2.height)) / 100, 100);
+    } else if (this.source instanceof TextNode) {
+      return this.source.getBorderWidth();
+    }
+    return 2;
+  }
+
+  /** 连线文字字号，随线宽等比缩放 */
+  get textFontSize(): number {
+    return Renderer.FONT_SIZE * (this.edgeWidth / 2);
+  }
+
   get textRectangle(): Rectangle {
-    // HACK: 这里会造成频繁渲染，频繁计算文字宽度进而可能出现性能问题
-    const textSize = getMultiLineTextSize(this.text, Renderer.FONT_SIZE, 1.2);
+    const textSize = getMultiLineTextSize(this.text, this.textFontSize, 1.2);
     // 自环连线的文字位置在节点左上角上方
     if (this.source.uuid === this.target.uuid) {
       const textLocation = this.source.collisionBox.getRectangle().location.add(new Vector(0, -50));
       return new Rectangle(textLocation.subtract(textSize.divide(2)), textSize);
     }
-    if (this.isShifting) {
+    if (this._shiftingIndex !== 0) {
       return new Rectangle(this.shiftingMidPoint.subtract(textSize.divide(2)), textSize);
     } else {
       return new Rectangle(this.bodyLine.midPoint().subtract(textSize.divide(2)), textSize);
@@ -93,18 +114,28 @@ export class LineEdge extends Edge {
   }
 
   get shiftingMidPoint(): Vector {
+    const BASE_OFFSET = 60;
     const midPoint = Vector.average(
       this.source.collisionBox.getRectangle().center,
       this.target.collisionBox.getRectangle().center,
     );
+    // 使用规范化方向（uuid 较小的节点 → uuid 较大的节点）
+    // 保证同一几何组内所有边（包括反向边）共享同一垂直轴，
+    // 避免 A→B 和 B→A 因方向取反 × index 取反相互抵消、落到同侧
+    const canonicalFrom =
+      this.source.uuid <= this.target.uuid
+        ? this.source.collisionBox.getRectangle().getCenter()
+        : this.target.collisionBox.getRectangle().getCenter();
+    const canonicalTo =
+      this.source.uuid <= this.target.uuid
+        ? this.target.collisionBox.getRectangle().getCenter()
+        : this.source.collisionBox.getRectangle().getCenter();
     return midPoint.add(
-      this.target.collisionBox
-        .getRectangle()
-        .getCenter()
-        .subtract(this.source.collisionBox.getRectangle().getCenter())
+      canonicalTo
+        .subtract(canonicalFrom)
         .normalize()
         .rotateDegrees(90)
-        .multiply(50),
+        .multiply(this._shiftingIndex * BASE_OFFSET),
     );
   }
 

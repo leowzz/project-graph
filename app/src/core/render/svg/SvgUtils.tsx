@@ -45,6 +45,36 @@ export namespace SvgUtils {
     );
   }
 
+  /**
+   * 带背景色描边的居中文字，用于让文字"压住"穿过它的连线。
+   * paintOrder="stroke fill" 确保描边在填充色下方，文字不会被描边遮住。
+   */
+  export function textFromCenterWithStroke(
+    text: string,
+    location: Vector,
+    fontSize: number,
+    fillColor: Color,
+    strokeColor: Color,
+  ) {
+    return (
+      <text
+        x={location.x}
+        y={location.y + Renderer.NODE_PADDING}
+        key={v4()}
+        fill={fillColor.toString()}
+        stroke={strokeColor.toString()}
+        strokeWidth={fontSize * 0.4}
+        strokeLinejoin="round"
+        paintOrder="stroke fill"
+        fontSize={fontSize}
+        textAnchor="middle"
+        fontFamily={FONT}
+      >
+        {text}
+      </text>
+    );
+  }
+
   export function textFromLeftTop(text: string, location: Vector, fontSize: number, color: Color) {
     const textSize = getTextSize(text, fontSize);
     return (

@@ -1,16 +1,31 @@
-import { formatEmacsKey, matchEmacsKeyPress, transEmacsKeyWinToMac } from "@/utils/emacs";
+import { Project } from "@/core/Project";
+import { activeTabAtom, store } from "@/state";
+import {
+  formatEmacsKey,
+  matchEmacsKeyPress,
+  parseSingleEmacsKey,
+  transEmacsKeyWinToMac,
+  transformedKeys,
+} from "@/utils/emacs";
 import { isMac } from "@/utils/platform";
 import { createStore } from "@/utils/store";
 import { Queue } from "@graphif/data-structures";
-import { allKeyBinds } from "./shortcutKeysRegister";
-import { activeProjectAtom, store } from "@/state";
-import type { Project } from "@/core/Project";
+import { proxy } from "comlink";
+import type { ForwardRefExoticComponent, RefAttributes } from "react";
+import type { LucideProps } from "lucide-react";
+import { allKeyBinds, type KeyBindWhen } from "./shortcutKeysRegister";
+
+export type KeyBindIcon = ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>;
 
 export interface UIKeyBind {
   id: string;
   key: string;
   isEnabled: boolean;
   onPress: (project?: Project) => void;
+  when: KeyBindWhen;
+  icon?: KeyBindIcon;
+  // 是否是持续型快捷键
+  isContinuous?: boolean;
   onRelease?: (project?: Project) => void;
 }
 /**
@@ -75,7 +90,9 @@ export namespace KeyBindsUI {
   function notifyKeyBindChange(id: string, keyBind: UIKeyBind) {
     const listeners = keyBindChangeListeners.get(id);
     if (listeners) {
-      listeners.forEach((callback) => callback(keyBind));
+      listeners.forEach((callback) => {
+        callback(keyBind);
+      });
     }
   }
 
@@ -112,7 +129,16 @@ export namespace KeyBindsUI {
         isEnabled = savedData.isEnabled !== false;
       }
 
-      KeyBindsUI.registerOneUIKeyBind(keybind.id, key, isEnabled, keybind.onPress, keybind.onRelease);
+      KeyBindsUI.registerOneUIKeyBind(
+        keybind.id,
+        key,
+        isEnabled,
+        keybind.onPress,
+        keybind.onRelease,
+        keybind.isContinuous,
+        keybind.when,
+        keybind.icon,
+      );
     }
     await store.save();
   }
@@ -125,20 +151,39 @@ export namespace KeyBindsUI {
     id: string,
     key: string,
     isEnabled: boolean = true,
-    onPress = () => {},
-    onRelease?: () => void,
+    onPress: (project?: Project) => void = () => {},
+    onRelease?: (project?: Project) => void,
+    isContinuous?: boolean,
+    when: KeyBindWhen = () => true,
+    icon?: KeyBindIcon,
   ) {
     if (registerSet.has(id)) {
-      // 防止开发时热更新重复注册
+      // 检查是否已经是同 ID 的快捷键，如果是，则更新它（用于扩展重新认领逻辑）
+      const index = allUIKeyBinds.findIndex((kb) => kb.id === id);
+      if (index !== -1) {
+        allUIKeyBinds[index] = { id, key, isEnabled, onPress, onRelease, when, isContinuous, icon };
+        notifyKeyBindChange(id, allUIKeyBinds[index]);
+        return;
+      }
       console.warn(`Keybind ${id} 已经注册过了`);
       return;
     }
     registerSet.add(id);
-    const keyBind: UIKeyBind = { id, key, isEnabled, onPress, onRelease };
+    const keyBind: UIKeyBind = { id, key, isEnabled, onPress, onRelease, when, isContinuous, icon };
     allUIKeyBinds.push(keyBind);
 
     // 通知监听器有新的快捷键注册
     notifyKeyBindChange(id, keyBind);
+  }
+
+  /**
+   * 注销一个快捷键
+   */
+  export function unregisterOneUIKeyBind(id: string) {
+    if (!registerSet.has(id)) return;
+    registerSet.delete(id);
+    allUIKeyBinds = allUIKeyBinds.filter((kb) => kb.id !== id);
+    // 这里不需要特别通知，因为 UI 应该会随之消失或不再响应
   }
 
   /**
@@ -298,8 +343,11 @@ export namespace KeyBindsUI {
     }
   }
 
-  // 跟踪当前按下的单键快捷键
+  // 跟踪当前按下的单键快捷键（序列型）
   const pressedSingleKeyBinds = new Set<string>();
+
+  // 跟踪当前按下的持续型快捷键（存放 id，防止重复触发）
+  const pressedContinuousKeyBindIds = new Set<string>();
 
   export function uiStartListen() {
     window.addEventListener("mousedown", onMouseDown);
@@ -314,6 +362,7 @@ export namespace KeyBindsUI {
     window.removeEventListener("keyup", onKeyUp);
     window.removeEventListener("wheel", onWheel);
     pressedSingleKeyBinds.clear();
+    pressedContinuousKeyBindIds.clear();
   }
 
   /**
@@ -328,22 +377,30 @@ export namespace KeyBindsUI {
     );
   }
 
-  function check() {
+  async function check(): Promise<boolean> {
     // 如果有文本输入元素获得焦点，不处理键盘事件
     if (!shouldProcessKeyboardEvent()) {
       // 清空队列，防止事件积累
       userEventQueue.clear();
-      return;
+      return false;
     }
-    const activeProject = store.get(activeProjectAtom);
+    const tab = store.get(activeTabAtom);
+    const activeProject = tab instanceof Project ? tab : undefined;
     let executed = false;
     for (const uiKeyBind of allUIKeyBinds) {
       // 如果快捷键未启用，跳过
       if (!uiKeyBind.isEnabled) {
         continue;
       }
+      // 持续型快捷键不走序列匹配
+      if (uiKeyBind.isContinuous) {
+        continue;
+      }
       if (matchEmacsKeyPress(uiKeyBind.key, userEventQueue.arrayList)) {
-        uiKeyBind.onPress(activeProject);
+        if (!(await uiKeyBind.when(activeProject))) {
+          continue;
+        }
+        uiKeyBind.onPress(uiKeyBind.id.startsWith("ext:") && activeProject ? proxy(activeProject) : activeProject);
         // 如果是单键快捷键且有onRelease回调，记录为已按下状态
         if (uiKeyBind.onRelease && uiKeyBind.key.length === 1) {
           pressedSingleKeyBinds.add(uiKeyBind.key);
@@ -355,13 +412,14 @@ export namespace KeyBindsUI {
     if (executed) {
       userEventQueue.clear();
     }
+    return executed;
   }
 
-  function onMouseDown(event: MouseEvent) {
+  async function onMouseDown(event: MouseEvent) {
     enqueue(event);
-    check();
+    await check();
   }
-  function onKeyDown(event: KeyboardEvent) {
+  async function onKeyDown(event: KeyboardEvent) {
     // 如果有文本输入元素获得焦点，不处理键盘事件
     if (!shouldProcessKeyboardEvent()) {
       // 清空队列，防止事件积累
@@ -369,32 +427,87 @@ export namespace KeyBindsUI {
       return;
     }
     if (["control", "alt", "shift", "meta"].includes(event.key.toLowerCase())) return;
+
+    const tab = store.get(activeTabAtom);
+    const activeProject = tab instanceof Project ? tab : undefined;
+
+    // ——持续型快捷键独立路径——
+    let continuousExecuted = false;
+    {
+      const rawKey = event.key.toLowerCase();
+      // 兼容中文输入法下的全角符号（如「【」→「[」）
+      const pressedKey = rawKey in transformedKeys ? transformedKeys[rawKey as keyof typeof transformedKeys] : rawKey;
+      for (const uiKeyBind of allUIKeyBinds) {
+        if (!uiKeyBind.isContinuous) continue;
+        if (!uiKeyBind.isEnabled) continue;
+        // 解析快捷键字符串，同时比对裸键和修饰键
+        const parsed = parseSingleEmacsKey(uiKeyBind.key);
+        if (parsed.key !== pressedKey) continue;
+        if (parsed.control !== event.ctrlKey) continue;
+        if (parsed.alt !== event.altKey) continue;
+        if (parsed.shift !== event.shiftKey) continue;
+        if (parsed.meta !== event.metaKey) continue;
+        // 防止 keydown 重复触发（按住时浏览器会持续发送 keydown 事件）
+        if (pressedContinuousKeyBindIds.has(uiKeyBind.id)) continue;
+        if (!(await uiKeyBind.when(activeProject))) continue;
+        pressedContinuousKeyBindIds.add(uiKeyBind.id);
+        uiKeyBind.onPress(activeProject);
+        continuousExecuted = true;
+      }
+    }
+    // 持续型路径处理后，不 return——序列型照常入队检测（两者不冲突）
+
+    // ——序列型快捷键路径——
     enqueue(event);
-    check();
+    const sequenceExecuted = await check();
+
+    // 只要有快捷键被执行，就阻止浏览器默认行为（防止 Tab 跳焦点、方向键滚动页面等）
+    if (continuousExecuted || sequenceExecuted) {
+      event.preventDefault();
+    }
   }
-  function onKeyUp(event: KeyboardEvent) {
+  async function onKeyUp(event: KeyboardEvent) {
     // 如果有文本输入元素获得焦点，不处理键盘事件
     if (!isMac && !shouldProcessKeyboardEvent()) {
       return;
     }
-    const activeProject = store.get(activeProjectAtom);
+    const tab = store.get(activeTabAtom);
+    const activeProject = tab instanceof Project ? tab : undefined;
     const key = event.key;
 
+    // ——持续型快捷键松开——
+    // 只比对裸键（不检查修饰键），这样松开主键即可立即停止，无需等待修饰键松开
+    const rawKeyUp = key.toLowerCase();
+    // 兼容中文输入法下的全角符号（如「】」→「]」）
+    const keyUpNormalized =
+      rawKeyUp in transformedKeys ? transformedKeys[rawKeyUp as keyof typeof transformedKeys] : rawKeyUp;
+    for (const uiKeyBind of allUIKeyBinds) {
+      if (!uiKeyBind.isContinuous) continue;
+      if (!uiKeyBind.isEnabled) continue;
+      const parsed = parseSingleEmacsKey(uiKeyBind.key);
+      if (parsed.key !== keyUpNormalized) continue;
+      if (!pressedContinuousKeyBindIds.has(uiKeyBind.id)) continue;
+      pressedContinuousKeyBindIds.delete(uiKeyBind.id);
+      if (!(await uiKeyBind.when(activeProject))) continue;
+      uiKeyBind.onRelease?.(activeProject);
+    }
+
+    // ——序列型快捷键松开——
     // 检查是否有对应的单键快捷键需要处理松开事件
     for (const uiKeyBind of allUIKeyBinds) {
       // 如果快捷键未启用，跳过
-      if (!uiKeyBind.isEnabled) {
-        continue;
-      }
+      if (!uiKeyBind.isEnabled) continue;
+      if (uiKeyBind.isContinuous) continue;
       if (uiKeyBind.onRelease && uiKeyBind.key === key && pressedSingleKeyBinds.has(key)) {
-        uiKeyBind.onRelease(activeProject);
         pressedSingleKeyBinds.delete(key);
+        if (!(await uiKeyBind.when(activeProject))) continue;
+        uiKeyBind.onRelease(activeProject);
       }
     }
   }
-  function onWheel(event: WheelEvent) {
+  async function onWheel(event: WheelEvent) {
     enqueue(event);
-    check();
+    await check();
   }
 
   /**

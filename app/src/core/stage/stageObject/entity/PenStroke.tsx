@@ -1,4 +1,4 @@
-import { Project } from "@/core/Project";
+import type { Project } from "@/core/Project";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
 import { Color, Vector } from "@graphif/data-structures";

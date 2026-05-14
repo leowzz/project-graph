@@ -4,10 +4,11 @@ import { Project, service } from "@/core/Project";
 import { CircleFlameEffect } from "@/core/service/feedbackService/effectEngine/concrete/CircleFlameEffect";
 import { LineCuttingEffect } from "@/core/service/feedbackService/effectEngine/concrete/LineCuttingEffect";
 import { Effect } from "@/core/service/feedbackService/effectEngine/effectObject";
+import { Settings } from "@/core/service/Settings";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
+import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { ConnectPoint } from "@/core/stage/stageObject/entity/ConnectPoint";
-import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { SvgUtils } from "@/core/render/svg/SvgUtils";
 import { Renderer } from "@/core/render/canvas2d/renderer";
 import { EdgeRendererClass } from "@/core/render/canvas2d/entityRenderer/edge/EdgeRendererClass";
@@ -53,15 +54,7 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
     const sourceRate = sourceRectangleRate ?? Vector.same(0.5);
     const targetRate = targetRectangleRate ?? Vector.same(0.5);
 
-    const isOldDefaultRate = (r: Vector): boolean => {
-      return (
-        (r.x === 0.5 && r.y === 0.5) ||
-        (r.x === 0.01 && r.y === 0.5) ||
-        (r.x === 0.99 && r.y === 0.5) ||
-        (r.x === 0.5 && r.y === 0.01) ||
-        (r.x === 0.5 && r.y === 0.99)
-      );
-    };
+    const isCenterRate = (r: Vector): boolean => r.x === 0.5 && r.y === 0.5;
 
     const sourceRect = startNode.collisionBox.getRectangle();
     const targetRect = toNode.collisionBox.getRectangle();
@@ -72,11 +65,8 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
     let start: Vector;
     if (startNode instanceof ConnectPoint) {
       start = startNode.geometryCenter;
-    } else if (
-      (startNode instanceof ImageNode || startNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(sourceRate)
-    ) {
-      start = sourceInner;
+    } else if (!isCenterRate(sourceRate)) {
+      start = Edge.getExactEdgePositionByRate(sourceRect, sourceRate) ?? sourceInner;
     } else {
       start = sourceRect.getLineIntersectionPoint(line);
     }
@@ -84,11 +74,8 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
     let end: Vector;
     if (toNode instanceof ConnectPoint) {
       end = toNode.geometryCenter;
-    } else if (
-      (toNode instanceof ImageNode || toNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(targetRate)
-    ) {
-      end = targetInner;
+    } else if (!isCenterRate(targetRate)) {
+      end = Edge.getExactEdgePositionByRate(targetRect, targetRate) ?? targetInner;
     } else {
       end = targetRect.getLineIntersectionPoint(line);
     }
@@ -237,7 +224,7 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
           2 * this.project.camera.currentScale,
         );
 
-        if (!(edge.target instanceof ConnectPoint)) {
+        if (this.shouldRenderTargetArrow(edge)) {
           this.project.edgeRenderer.renderArrowHead(p1, verticalDirection, 15, edge.color);
         }
       } else if (verticalDirection.y === 0) {
@@ -286,7 +273,7 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
           2 * this.project.camera.currentScale,
         );
 
-        if (!(edge.target instanceof ConnectPoint)) {
+        if (this.shouldRenderTargetArrow(edge)) {
           this.project.edgeRenderer.renderArrowHead(p1, verticalDirection, 15, edge.color);
         }
       } else {
@@ -325,7 +312,7 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
         2 * this.project.camera.currentScale,
       );
       // 画箭头
-      if (!(edge.target instanceof ConnectPoint)) {
+      if (this.shouldRenderTargetArrow(edge)) {
         const size = 15;
         const direction = edge.target.collisionBox
           .getRectangle()
@@ -382,11 +369,16 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
         2 * this.project.camera.currentScale,
       );
     }
-    this.renderArrowHead(
-      edge,
-      edge.target.collisionBox.getRectangle().getCenter().subtract(shiftingMidPoint).normalize(),
-      endPoint,
-    );
+    if (this.shouldRenderTargetArrow(edge)) {
+      this.renderArrowHead(
+        edge,
+        edge.target.collisionBox.getRectangle().getCenter().subtract(shiftingMidPoint).normalize(),
+        endPoint,
+      );
+    }
+  }
+  private shouldRenderTargetArrow(edge: LineEdge): boolean {
+    return !(Settings.hideArrowWhenPointingToConnectPoint && edge.target instanceof ConnectPoint);
   }
   private renderArrowHead(edge: LineEdge, direction: Vector, endPoint = edge.bodyLine.end.clone()) {
     const size = 15;
@@ -405,10 +397,12 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
     );
     // 画箭头
     {
-      const size = 15;
-      const direction = new Vector(1, 0).rotateDegrees(15);
-      const endPoint = edge.target.collisionBox.getRectangle().leftCenter;
-      this.project.edgeRenderer.renderArrowHead(endPoint, direction, size, edge.color);
+      if (this.shouldRenderTargetArrow(edge)) {
+        const size = 15;
+        const direction = new Vector(1, 0).rotateDegrees(15);
+        const endPoint = edge.target.collisionBox.getRectangle().leftCenter;
+        this.project.edgeRenderer.renderArrowHead(endPoint, direction, size, edge.color);
+      }
     }
   }
   public getNormalStageSvg(edge: LineEdge): React.ReactNode {
@@ -436,16 +430,18 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
       );
     }
     // 加箭头
-    const arrowHead = this.project.edgeRenderer.generateArrowHeadSvg(
-      edge.bodyLine.end.clone(),
-      edge.target.collisionBox
-        .getRectangle()
-        .getCenter()
-        .subtract(edge.source.collisionBox.getRectangle().getCenter())
-        .normalize(),
-      15,
-      edgeColor,
-    );
+    const arrowHead = this.shouldRenderTargetArrow(edge)
+      ? this.project.edgeRenderer.generateArrowHeadSvg(
+          edge.bodyLine.end.clone(),
+          edge.target.collisionBox
+            .getRectangle()
+            .getCenter()
+            .subtract(edge.source.collisionBox.getRectangle().getCenter())
+            .normalize(),
+          15,
+          edgeColor,
+        )
+      : null;
     return (
       <>
         {lineBody}
@@ -465,25 +461,14 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
     const rate = sourceRectangleRate ?? Vector.same(0.5);
     const startRect = startNode.collisionBox.getRectangle();
 
-    const isOldDefaultRate = (r: Vector): boolean => {
-      return (
-        (r.x === 0.5 && r.y === 0.5) ||
-        (r.x === 0.01 && r.y === 0.5) ||
-        (r.x === 0.99 && r.y === 0.5) ||
-        (r.x === 0.5 && r.y === 0.01) ||
-        (r.x === 0.5 && r.y === 0.99)
-      );
-    };
+    const isCenterRate = (r: Vector): boolean => r.x === 0.5 && r.y === 0.5;
 
     const startInner = startRect.getInnerLocationByRateVector(rate);
     let start: Vector;
     if (startNode instanceof ConnectPoint) {
       start = startNode.geometryCenter;
-    } else if (
-      (startNode instanceof ImageNode || startNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(rate)
-    ) {
-      start = startInner;
+    } else if (!isCenterRate(rate)) {
+      start = Edge.getExactEdgePositionByRate(startRect, rate) ?? startInner;
     } else {
       start = startRect.getLineIntersectionPoint(new Line(startInner, mouseLocation));
     }
@@ -516,15 +501,7 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
     const startRect = startNode.collisionBox.getRectangle();
     const endRect = endNode.collisionBox.getRectangle();
 
-    const isOldDefaultRate = (r: Vector): boolean => {
-      return (
-        (r.x === 0.5 && r.y === 0.5) ||
-        (r.x === 0.01 && r.y === 0.5) ||
-        (r.x === 0.99 && r.y === 0.5) ||
-        (r.x === 0.5 && r.y === 0.01) ||
-        (r.x === 0.5 && r.y === 0.99)
-      );
-    };
+    const isCenterRate = (r: Vector): boolean => r.x === 0.5 && r.y === 0.5;
 
     const startInner = startRect.getInnerLocationByRateVector(sourceRate);
     const endInner = endRect.getInnerLocationByRateVector(targetRate);
@@ -533,11 +510,8 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
     let start: Vector;
     if (startNode instanceof ConnectPoint) {
       start = startNode.geometryCenter;
-    } else if (
-      (startNode instanceof ImageNode || startNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(sourceRate)
-    ) {
-      start = startInner;
+    } else if (!isCenterRate(sourceRate)) {
+      start = Edge.getExactEdgePositionByRate(startRect, sourceRate) ?? startInner;
     } else {
       start = startRect.getLineIntersectionPoint(line);
     }
@@ -545,11 +519,8 @@ export class VerticalPolyEdgeRenderer extends EdgeRendererClass {
     let end: Vector;
     if (endNode instanceof ConnectPoint) {
       end = endNode.geometryCenter;
-    } else if (
-      (endNode instanceof ImageNode || endNode.constructor.name === "ReferenceBlockNode") &&
-      !isOldDefaultRate(targetRate)
-    ) {
-      end = endInner;
+    } else if (!isCenterRate(targetRate)) {
+      end = Edge.getExactEdgePositionByRate(endRect, targetRate) ?? endInner;
     } else {
       end = endRect.getLineIntersectionPoint(line);
     }

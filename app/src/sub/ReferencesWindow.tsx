@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { SubWindow } from "@/core/service/SubWindow";
-import { activeProjectAtom } from "@/state";
+import { activeTabAtom } from "@/state";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { RefreshCcw } from "lucide-react";
@@ -9,10 +9,12 @@ import { useState, useEffect } from "react";
 import { PathString } from "@/utils/pathString";
 import { URI } from "vscode-uri";
 import { RecentFileManager } from "@/core/service/dataFileService/RecentFileManager";
+import { Project } from "@/core/Project";
 
 export default function ReferencesWindow(props: { currentProjectFileName: string }) {
   const currentProjectFileName = props.currentProjectFileName;
-  const [project] = useAtom(activeProjectAtom);
+  const [tab] = useAtom(activeTabAtom);
+  const project = tab instanceof Project ? tab : undefined;
   if (!project) return <></>;
 
   const [references, setReferences] = useState(project.references);
@@ -67,7 +69,7 @@ export default function ReferencesWindow(props: { currentProjectFileName: string
             </div>
 
             <div>
-              <h3 className="mb-2 text-lg font-semibold">引用此文件中一些Section框的文件</h3>
+              <h3 className="mb-2 text-lg font-semibold">引用此文件中一些分组框的文件</h3>
               {Object.keys(references.sections).length === 0 ? (
                 <p className="text-muted-foreground text-sm">{currentProjectFileName}中没有被引用的Section</p>
               ) : (
@@ -103,7 +105,8 @@ export default function ReferencesWindow(props: { currentProjectFileName: string
 export function SectionReferencePanel(props: { currentProjectFileName: string; sectionName: string }) {
   // const currentProjectFileName = props.currentProjectFileName;
   const sectionName = props.sectionName;
-  const [project] = useAtom(activeProjectAtom);
+  const [tab] = useAtom(activeTabAtom);
+  const project = tab instanceof Project ? tab : undefined;
   if (!project) return <></>;
   const [references, setReferences] = useState(project.references);
   const [isUpdating, setIsUpdating] = useState(false);

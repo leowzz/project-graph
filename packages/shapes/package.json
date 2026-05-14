@@ -4,20 +4,25 @@
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
   "files": [
     "dist"
   ],
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.mts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
     }
   },
   "scripts": {
     "build": "tsdown",
-    "type-check": "tsc"
+    "type-check": "tsc",
+    "publish": "pnpm publish --no-git-checks"
   },
   "devDependencies": {
     "tsdown": "catalog:",
@@ -26,6 +31,6 @@
   "dependencies": {
     "@graphif/data-structures": "workspace:*",
     "@graphif/serializer": "workspace:*",
-    "unplugin-original-class-name": "^1.0.0"
+    "unplugin-original-class-name": "^1.0.1"
   }
 }

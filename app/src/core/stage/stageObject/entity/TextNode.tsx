@@ -1,17 +1,17 @@
-import { Project } from "@/core/Project";
+import type { Project } from "@/core/Project";
 import { Renderer } from "@/core/render/canvas2d/renderer";
 import { NodeMoveShadowEffect } from "@/core/service/feedbackService/effectEngine/concrete/NodeMoveShadowEffect";
 import { Settings } from "@/core/service/Settings";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
-import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
-import { ResizeAble } from "@/core/stage/stageObject/abstract/StageObjectInterface";
+import type { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
+import type { ResizeAble } from "@/core/stage/stageObject/abstract/StageObjectInterface";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { getMultiLineTextSize } from "@/utils/font";
 import { Color, ProgressNumber, Vector } from "@graphif/data-structures";
 import { id, passExtraAtArg1, passObject, serializable } from "@graphif/serializer";
 import { Rectangle } from "@graphif/shapes";
-import { Value } from "platejs";
+import type { Value } from "platejs";
 
 /**
  *
@@ -30,11 +30,6 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
   public collisionBox: CollisionBox;
   @serializable
   color: Color = Color.Transparent;
-
-  /**
-   * 是否正在使用AI生成
-   */
-  public isAiGenerating: boolean = false;
 
   /**
    * 字体缩放级别，整数，基准值为0，对应默认字体大小
@@ -151,22 +146,47 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
   }
 
   /**
+   * 动态内边距，与字体大小等比缩放
+   */
+  public getPadding(): number {
+    return (this.fontSizeCache / Renderer.FONT_SIZE) * Renderer.NODE_PADDING;
+  }
+
+  /**
+   * 动态边框粗细，与字体大小等比缩放，基准为 2px
+   */
+  public getBorderWidth(): number {
+    return (this.fontSizeCache / Renderer.FONT_SIZE) * 2;
+  }
+
+  /**
+   * 动态圆角半径，与字体大小等比缩放
+   */
+  public getBorderRadius(): number {
+    return (this.fontSizeCache / Renderer.FONT_SIZE) * Renderer.NODE_ROUNDED_RADIUS;
+  }
+
+  /**
    * 更新字体大小缓存
    * fontScaleLevel 存储的是"半个级别"，所以计算时要除以 2
    * 这样步长就是 0.5，避免了浮点数精度问题
    */
   private updateFontSizeCache(): void {
-    this.fontSizeCache = Renderer.FONT_SIZE * Math.pow(2, this.fontScaleLevel / 2);
+    this.fontSizeCache = Renderer.FONT_SIZE * 2 ** (this.fontScaleLevel / 2);
     if (this.fontSizeCache >= 2) {
       // 确保指数变化的过程中字体不会变小到0
       this.fontSizeCache = Math.floor(this.fontSizeCache);
     }
-    console.log(this.fontSizeCache);
   }
 
   public setFontScaleLevel(level: number) {
     this.fontScaleLevel = level;
     this.updateFontSizeCache();
+    if (this.sizeAdjust === "auto") {
+      this.adjustSizeByText();
+    } else if (this.sizeAdjust === "manual") {
+      this.resizeHandle(Vector.getZero());
+    }
   }
 
   /**
@@ -219,11 +239,11 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
   private adjustSizeByText() {
     this.collisionBox.shapes[0] = new Rectangle(
       this.rectangle.location.clone(),
-      getMultiLineTextSize(this.text, this.getFontSize(), 1.5).add(Vector.same(Renderer.NODE_PADDING).multiply(2)),
+      getMultiLineTextSize(this.text, this.getFontSize(), 1.5).add(Vector.same(this.getPadding()).multiply(2)),
     );
   }
   private adjustHeightByText() {
-    const wrapWidth = this.rectangle.size.x - Renderer.NODE_PADDING * 2;
+    const wrapWidth = this.rectangle.size.x - this.getPadding() * 2;
     const newTextSize = this.project.textRenderer.measureMultiLineTextSize(
       this.text,
       this.getFontSize(),
@@ -232,7 +252,7 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     );
     this.collisionBox.shapes[0] = new Rectangle(
       this.rectangle.location.clone(),
-      new Vector(this.rectangle.size.x, newTextSize.y + Renderer.NODE_PADDING * 2),
+      new Vector(this.rectangle.size.x, newTextSize.y + this.getPadding() * 2),
     );
     this.updateFatherSectionByMove();
   }
@@ -261,6 +281,10 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     } else if (this.sizeAdjust === "manual") {
       this.adjustHeightByText();
     }
+    // 向孪生兄弟同步 text（_isSyncing 为 true 时说明自己正在被同步写入，跳过避免循环）
+    if (!this._isSyncing) {
+      this.project.syncAssociationManager.syncFrom(this, "text");
+    }
   }
 
   resizeHandle(delta: Vector) {
@@ -272,10 +296,10 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     const newTextSize = this.project.textRenderer.measureMultiLineTextSize(
       this.text,
       this.getFontSize(),
-      newSize.x - Renderer.NODE_PADDING * 2,
+      newSize.x - this.getPadding() * 2,
       1.5,
     );
-    newSize.y = newTextSize.y + Renderer.NODE_PADDING * 2;
+    newSize.y = newTextSize.y + this.getPadding() * 2;
     newRectangle.size = newSize;
 
     this.collisionBox.shapes[0] = newRectangle;
@@ -302,7 +326,9 @@ export class TextNode extends ConnectableEntity implements ResizeAble {
     this.collisionBox.shapes[0] = newRectangle;
 
     // 移动雪花特效
-    this.project.effects.addEffect(new NodeMoveShadowEffect(new ProgressNumber(0, 30), this.rectangle, delta));
+    if (!this.isHiddenBySectionCollapse) {
+      this.project.effects.addEffect(new NodeMoveShadowEffect(new ProgressNumber(0, 30), this.rectangle, delta));
+    }
     this.updateFatherSectionByMove();
     // 移动其他实体，递归碰撞
     this.updateOtherEntityLocationByMove();

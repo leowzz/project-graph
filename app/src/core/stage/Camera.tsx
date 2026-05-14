@@ -1,5 +1,3 @@
-import { Dialog } from "@/components/ui/dialog";
-import { NumberFunctions } from "@/core/algorithm/numberFunctions";
 import { Project, service } from "@/core/Project";
 import { easeOutExpo } from "@/core/service/feedbackService/effectEngine/mathTools/easings";
 import { Settings } from "@/core/service/Settings";
@@ -10,7 +8,6 @@ import { isMac } from "@/utils/platform";
 import { Queue, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { toast } from "sonner";
-import { Telemetry } from "../service/Telemetry";
 
 /**
  * 摄像机
@@ -134,38 +131,36 @@ export class Camera {
       return;
     }
 
-    // 回弹效果
-    // if (this.currentScale < 0.001) {
-    //   this.targetScale = 0.005;
-    // }
-    if (this.currentScale < 0.0000000001) {
-      this.targetScale = 0.0000000002;
-    }
-    // 彩蛋
-    if (this.currentScale > 100) {
-      this.currentScale = 0.001;
-      this.targetScale = 0.01;
-      if (isMac) {
-        toast(
-          "视野已经放大到极限了！默认快捷键F可根据内容重置视野，mac在刚启动软件的若干秒内鼠标滚轮可能过于灵敏，导致缩放过快",
-        );
+    const minScaleLimit = 0.0000000001;
+    const minScaleBounceTarget = 0.0000000002;
+    const maxScaleLimit = 100_0000_0000;
+
+    if (this.currentScale < minScaleLimit) {
+      if (Settings.cameraZoomOutLimitBehavior === "micro") {
+        this.currentScale = maxScaleLimit;
+        this.targetScale = maxScaleLimit;
+      } else if (Settings.cameraZoomOutLimitBehavior === "reset") {
+        this.currentScale = 1;
+        this.targetScale = 1;
       } else {
-        toast("您已抵达微观的尽头，世界就此反转，现在回归到了宏观。默认快捷键F可根据内容重置视野", {
-          action: {
-            label: "我有更好的idea",
-            onClick: async () => {
-              const idea = await Dialog.input(
-                "发送反馈：微观尽头彩蛋",
-                "您输入的内容将发送到服务器，请勿包含敏感信息",
-                {
-                  multiline: true,
-                },
-              );
-              if (!idea) return;
-              Telemetry.event("微观尽头更好的idea", { idea });
-            },
-          },
-        });
+        this.targetScale = minScaleBounceTarget;
+      }
+    }
+    if (this.currentScale > maxScaleLimit) {
+      if (Settings.cameraZoomInLimitBehavior === "micro") {
+        this.currentScale = maxScaleLimit;
+        this.targetScale = maxScaleLimit;
+      } else if (Settings.cameraZoomInLimitBehavior === "reset") {
+        this.currentScale = 1;
+        this.targetScale = 1;
+      } else {
+        this.currentScale = 0.001;
+        this.targetScale = 0.01;
+        if (isMac) {
+          toast(
+            "视野已经放大到极限了！默认快捷键F可根据内容重置视野，mac在刚启动软件的若干秒内鼠标滚轮可能过于灵敏，导致缩放过快",
+          );
+        }
       }
     }
     // 冲击式移动
@@ -211,15 +206,17 @@ export class Camera {
         this.setLocationByOtherLocation(this.targetLocationByScale, diffViewVector);
       }
     }
-    // 循环空间
-    if (Settings.limitCameraInCycleSpace) {
-      this.dealCycleSpace();
-    }
     if (this.isStartZoomIn) {
       this.targetScale *= 1.05;
     }
     if (this.isStartZoomOut) {
       this.targetScale *= 0.95;
+    }
+    if (Settings.cameraZoomInLimitBehavior === "micro" && this.targetScale > maxScaleLimit) {
+      this.targetScale = maxScaleLimit;
+    }
+    if (Settings.cameraZoomOutLimitBehavior === "macro" && this.targetScale < minScaleBounceTarget) {
+      this.targetScale = minScaleBounceTarget;
     }
     this.tickNumber++;
   }
@@ -251,15 +248,6 @@ export class Camera {
 
   public isStartZoomIn: boolean = false;
   public isStartZoomOut: boolean = false;
-
-  /**
-   * 处理循环空间
-   */
-  private dealCycleSpace() {
-    this.location.x = NumberFunctions.mod(this.location.x, Settings.cameraCycleSpaceSizeX);
-    this.location.y = NumberFunctions.mod(this.location.y, Settings.cameraCycleSpaceSizeY);
-    // 限制缩放不能超过循环空间大小
-  }
 
   /**
    * 修改摄像机位置，但是通过一种奇特的方式来修改

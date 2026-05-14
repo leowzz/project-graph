@@ -151,7 +151,7 @@ const categories = {
   - `background`: 背景相关设置
   - `node`: 节点样式设置
   - `edge`: 连线样式设置
-  - `section`: Section 框的样式设置
+  - `section`: 分组框的样式设置
   - `entityDetails`: 实体详情面板设置
   - `debug`: 调试相关设置
   - `miniWindow`: 迷你窗口设置

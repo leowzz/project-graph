@@ -1,5 +1,6 @@
 import { Project, service } from "@/core/Project";
 import { ConnectableEntity } from "@/core/stage/stageObject/abstract/ConnectableEntity";
+import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle, Line } from "@graphif/shapes";
 
@@ -547,6 +548,9 @@ export class AutoLayoutFastTree {
       const outTopEdges = outEdges.filter((edge) => edge.isBottomToTop());
       const outBottomEdges = outEdges.filter((edge) => edge.isTopToBottom());
       const outUnknownEdges = outEdges.filter((edge) => edge.isUnknownDirection());
+      // 非标准连线：端点是混合轴向（如右侧发出+上侧接收），不属于四个标准方向也不是默认中心
+      // 对于非标准连线，只保持父子节点的相对位置不变，但仍对其子树进行递归格式化
+      const outNonStandardEdges = outEdges.filter((edge) => edge.isNonStandardDirection());
 
       // 获取排序后的子节点列表
       let rightChildList = outRightEdges.map((edge) => edge.target);
@@ -554,6 +558,7 @@ export class AutoLayoutFastTree {
       let topChildList = outTopEdges.map((edge) => edge.target);
       let bottomChildList = outBottomEdges.map((edge) => edge.target);
       const unknownChildList = outUnknownEdges.map((edge) => edge.target);
+      const nonStandardChildList = outNonStandardEdges.map((edge) => edge.target);
 
       rightChildList = this.getSortedChildNodes(node, rightChildList, "col");
       leftChildList = this.getSortedChildNodes(node, leftChildList, "col");
@@ -575,22 +580,36 @@ export class AutoLayoutFastTree {
       for (const child of unknownChildList) {
         dfs(child); // 递归口
       }
+      // 非标准连线的子节点：递归格式化其子树，但不调整该子节点与父节点之间的相对位置
+      for (const child of nonStandardChildList) {
+        dfs(child); // 递归口
+      }
       // 排列这些子节点，然后调整子树位置到根节点旁边
-      this.alignTrees(rightChildList, "right", 20, true);
-      this.adjustChildrenTreesByRootNodeLocation(node, rightChildList, 150, "rightCenter", true);
 
-      this.alignTrees(topChildList, "top", 20, true);
+      // 计算动态距离
+      let treesGap = 20;
+      let fatherChildNearGap = 50;
+      if (node instanceof TextNode) {
+        treesGap = treesGap * 2 ** (node.fontScaleLevel / 2);
+        fatherChildNearGap = fatherChildNearGap * 2 ** (node.fontScaleLevel / 2);
+      }
+      const fatherChildNormalGap = fatherChildNearGap * 3;
+
+      this.alignTrees(rightChildList, "right", treesGap, true);
+      this.adjustChildrenTreesByRootNodeLocation(node, rightChildList, fatherChildNormalGap, "rightCenter", true);
+
+      this.alignTrees(topChildList, "top", treesGap, true);
       // 如果是向上生长且只有一个子节点（唯一子节点），使用较短距离，否则使用150像素
-      const topGap = topChildList.length === 1 ? 50 : 150;
+      const topGap = topChildList.length === 1 ? fatherChildNearGap : fatherChildNormalGap;
       this.adjustChildrenTreesByRootNodeLocation(node, topChildList, topGap, "topCenter", true);
 
-      this.alignTrees(bottomChildList, "bottom", 20, true);
+      this.alignTrees(bottomChildList, "bottom", treesGap, true);
       // 如果是向下生长且只有一个子节点（唯一子节点），使用较短距离，否则使用150像素
-      const bottomGap = bottomChildList.length === 1 ? 50 : 150;
+      const bottomGap = bottomChildList.length === 1 ? fatherChildNearGap : fatherChildNormalGap;
       this.adjustChildrenTreesByRootNodeLocation(node, bottomChildList, bottomGap, "bottomCenter", true);
 
-      this.alignTrees(leftChildList, "left", 20, true);
-      this.adjustChildrenTreesByRootNodeLocation(node, leftChildList, 150, "leftCenter", true);
+      this.alignTrees(leftChildList, "left", treesGap, true);
+      this.adjustChildrenTreesByRootNodeLocation(node, leftChildList, fatherChildNormalGap, "leftCenter", true);
 
       // 检测并解决不同方向子树群之间的重叠问题
       this.resolveSubtreeOverlaps(

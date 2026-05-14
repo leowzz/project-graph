@@ -10,6 +10,8 @@ import { ControllerEntityClickSelectAndMoveClass } from "@/core/service/controlS
 import { ControllerEntityCreateClass } from "@/core/service/controlService/controller/concrete/ControllerEntityCreate";
 import { ControllerLayerMovingClass } from "@/core/service/controlService/controller/concrete/ControllerEntityLayerMoving";
 import { ControllerEntityResizeClass } from "@/core/service/controlService/controller/concrete/ControllerEntityResize";
+import { ControllerExtensionEntityClickClass } from "@/core/service/controlService/controller/concrete/ControllerExtensionEntityClick";
+import { ControllerImageScaleClass } from "@/core/service/controlService/controller/concrete/ControllerImageScale";
 import { ControllerNodeConnectionClass } from "@/core/service/controlService/controller/concrete/ControllerNodeConnection";
 import { ControllerNodeEditClass } from "@/core/service/controlService/controller/concrete/ControllerNodeEdit";
 import { ControllerPenStrokeControlClass } from "@/core/service/controlService/controller/concrete/ControllerPenStrokeControl";
@@ -313,14 +315,15 @@ declare module "./Controller" {
     edgeEdit: ControllerEdgeEditClass;
     entityClickSelectAndMove: ControllerEntityClickSelectAndMoveClass;
     entityCreate: ControllerEntityCreateClass;
+    extensionEntityClick: ControllerExtensionEntityClickClass;
     layerMoving: ControllerLayerMovingClass;
     entityResize: ControllerEntityResizeClass;
-    imageScale: ControllerImageScaleClass;
     nodeConnection: ControllerNodeConnectionClass;
     nodeEdit: ControllerNodeEditClass;
     penStrokeControl: ControllerPenStrokeControlClass;
     penStrokeDrawing: ControllerPenStrokeDrawingClass;
     rectangleSelect: ControllerRectangleSelectClass;
     sectionEdit: ControllerSectionEditClass;
+    imageScale: ControllerImageScaleClass;
   }
 }

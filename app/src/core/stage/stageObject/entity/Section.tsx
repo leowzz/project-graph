@@ -23,6 +23,7 @@ export class Section extends ConnectableEntity {
   public uuid: string;
   _isEditingTitle: boolean = false;
   private _collisionBoxWhenCollapsed: CollisionBox;
+  @serializable
   private _collisionBoxNormal: CollisionBox;
 
   public get isEditingTitle() {
@@ -38,7 +39,6 @@ export class Section extends ConnectableEntity {
    */
   static bigTitleCameraScale = 0.2;
 
-  @serializable
   public get collisionBox(): CollisionBox {
     if (this.isCollapsed) {
       return this._collisionBoxWhenCollapsed;
@@ -87,6 +87,7 @@ export class Section extends ConnectableEntity {
       uuid = crypto.randomUUID() as string,
       text = "",
       collisionBox = new CollisionBox([new Rectangle(new Vector(0, 0), new Vector(0, 0))]),
+      _collisionBoxNormal: collisionBoxNormal = undefined as CollisionBox | undefined,
       color = Color.Transparent,
       locked = false,
       isCollapsed = false,
@@ -98,14 +99,16 @@ export class Section extends ConnectableEntity {
     super();
     this.uuid = uuid;
 
+    if (collisionBoxNormal) {
+      // 从序列化数据恢复：直接使用保存的 _collisionBoxNormal（含正确位置）
+      this._collisionBoxNormal = collisionBoxNormal;
+    } else {
+      // 新建：从 collisionBox 参数构建 _collisionBoxNormal
+      const rect = collisionBox.getRectangle();
+      const shapes: Shape[] = rect.getBoundingLines();
+      this._collisionBoxNormal = new CollisionBox(shapes);
+    }
     this._collisionBoxWhenCollapsed = collisionBox;
-
-    const rect = collisionBox.getRectangle();
-    const shapes: Shape[] = rect.getBoundingLines();
-    // shapes.push(
-    //   new Rectangle(rect.location, new Vector(rect.size.x, 50)),
-    // );
-    this._collisionBoxNormal = new CollisionBox(shapes);
 
     this.color = color;
     this.text = text;
@@ -136,13 +139,15 @@ export class Section extends ConnectableEntity {
   }
 
   /**
-   * 根据子内容 自动调整Section框的位置和大小
+   * 根据子内容 自动调整分组框的位置和大小
    * 如果没有子内容，则
    *   自动调整大小为 标题+padding，位置为 当前碰撞箱外接矩形的左上角
    */
   adjustLocationAndSize() {
     let rectangle: Rectangle;
     const titleSize = getTextSize(this.text, Renderer.FONT_SIZE);
+
+    const titleBarHeight = this.text === "" ? 0 : 50;
 
     if (this.children.length === 0) {
       rectangle = new Rectangle(
@@ -157,14 +162,16 @@ export class Section extends ConnectableEntity {
       );
       rectangle.size.x = Math.max(rectangle.size.x, titleSize.x + Renderer.NODE_PADDING * 2);
       // 留白范围在上面调整
-      rectangle.location = rectangle.location.subtract(new Vector(0, 50));
-      rectangle.size = rectangle.size.add(new Vector(0, 50));
+      rectangle.location = rectangle.location.subtract(new Vector(0, titleBarHeight));
+      rectangle.size = rectangle.size.add(new Vector(0, titleBarHeight));
     }
 
     this._collisionBoxNormal.shapes = rectangle.getBoundingLines();
-    // 群友需求：希望Section框扩大交互范围，标题也能拖动
-    const newRect = new Rectangle(rectangle.location.clone(), new Vector(rectangle.size.x, 50));
-    this._collisionBoxNormal.shapes.push(newRect);
+    // 群友需求：希望分组框扩大交互范围，标题也能拖动
+    if (titleBarHeight > 0) {
+      const newRect = new Rectangle(rectangle.location.clone(), new Vector(rectangle.size.x, titleBarHeight));
+      this._collisionBoxNormal.shapes.push(newRect);
+    }
     // 调整折叠状态
     this._collisionBoxWhenCollapsed = this.collapsedCollisionBox();
   }
@@ -172,13 +179,20 @@ export class Section extends ConnectableEntity {
    * 根据自身的折叠状态调整子节点的状态
    * 以屏蔽触碰和显示
    */
-  adjustChildrenStateByCollapse() {
-    if (this.isCollapsed) {
+  adjustChildrenStateByCollapse(parentCollapsed = false) {
+    const shouldHide = parentCollapsed || this.isCollapsed;
+    if (shouldHide) {
+      this.children.forEach((child) => {
+        child.isHiddenBySectionCollapse = true;
+        if (child instanceof Section) {
+          child.adjustChildrenStateByCollapse(true);
+        }
+      });
+    } else {
       this.children.forEach((child) => {
         if (child instanceof Section) {
-          child.adjustChildrenStateByCollapse();
+          child.adjustChildrenStateByCollapse(false);
         }
-        child.isHiddenBySectionCollapse = true;
       });
     }
   }
@@ -236,7 +250,9 @@ export class Section extends ConnectableEntity {
     }
 
     // 移动雪花特效
-    this.project.effects.addEffect(new NodeMoveShadowEffect(new ProgressNumber(0, 30), this.rectangle, delta));
+    if (!this.isHiddenBySectionCollapse) {
+      this.project.effects.addEffect(new NodeMoveShadowEffect(new ProgressNumber(0, 30), this.rectangle, delta));
+    }
     this.updateFatherSectionByMove();
     // 移动其他实体，递归碰撞
     this.updateOtherEntityLocationByMove();

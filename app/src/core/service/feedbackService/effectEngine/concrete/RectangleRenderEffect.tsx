@@ -14,6 +14,7 @@ export class RectangleRenderEffect extends Effect {
     private fillColor: Color,
     private strokeColor: Color,
     private strokeWidth: number,
+    private roundedRadius: number = Renderer.NODE_ROUNDED_RADIUS,
   ) {
     super(timeProgress);
   }
@@ -24,19 +25,18 @@ export class RectangleRenderEffect extends Effect {
       this.fillColor,
       mixColors(this.strokeColor, this.strokeColor.toTransparent(), this.timeProgress.rate),
       this.strokeWidth * project.camera.currentScale,
-      Renderer.NODE_ROUNDED_RADIUS * project.camera.currentScale,
+      this.roundedRadius * project.camera.currentScale,
     );
   }
 
-  static fromPreAlign(rectangle: Rectangle): RectangleRenderEffect {
+  static fromPreAlign(project: Project, rectangle: Rectangle): RectangleRenderEffect {
     return new RectangleRenderEffect(
       new ProgressNumber(0, 10),
       rectangle,
       Color.Transparent,
-      // TODO: 先暂时不解决 this.project 报错问题
-      // this.project.stageStyleManager.currentStyle.CollideBoxPreSelected,
-      Color.White,
-      4,
+      project.stageStyleManager.currentStyle.CollideBoxPreSelected,
+      2,
+      0,
     );
   }
 

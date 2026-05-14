@@ -1,16 +1,23 @@
 import { Dialog } from "@/components/ui/dialog";
+import { loadAllServicesBeforeInit } from "@/core/loadAllServices";
 import { Project } from "@/core/Project";
+import { RecentFileManager } from "@/core/service/dataFileService/RecentFileManager";
+import { Settings } from "@/core/service/Settings";
 import { Edge } from "@/core/stage/stageObject/association/Edge";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
 import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
+import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { ReferenceBlockNode } from "@/core/stage/stageObject/entity/ReferenceBlockNode";
+import { Section } from "@/core/stage/stageObject/entity/Section";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
 import { DetailsManager } from "@/core/stage/stageObject/tools/entityDetailsManager";
+import { PathString } from "@/utils/pathString";
 import { averageColors, Color, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { toast } from "sonner";
 import { v4 } from "uuid";
+import AIWindow, { setAIWindowInitialText } from "@/sub/AIWindow";
 
 export namespace TextNodeSmartTools {
   /**
@@ -24,12 +31,22 @@ export namespace TextNodeSmartTools {
     return new Vector(0.5, 0.5);
   }
 
+  /**
+   * 切换文本节点的宽度调整模式（ttt 快捷键）
+   *
+   * - auto → manual：将宽度设为「textNodeManualDefaultCharWidth」设置项指定的字符数对应的像素值
+   *   换算公式：pixelWidth = charWidth × FONT_SIZE + NODE_PADDING × 2
+   * - manual → auto：根据文本内容自动调整宽度
+   */
   export function ttt(project: Project) {
     const selectedTextNodes = project.stageManager.getSelectedEntities().filter((node) => node instanceof TextNode);
     for (const node of selectedTextNodes) {
       if (node.sizeAdjust === "auto") {
         node.sizeAdjust = "manual";
-        node.resizeHandle(Vector.getZero());
+        const charWidth = Settings.textNodeManualDefaultCharWidth;
+        // FONT_SIZE = 32（一个中文字符的宽度），NODE_PADDING = 14（节点内边距）
+        const pixelWidth = charWidth * node.getFontSize() + node.getPadding() * 2;
+        node.resizeWidthTo(pixelWidth);
       } else if (node.sizeAdjust === "manual") {
         node.sizeAdjust = "auto";
         node.forceAdjustSizeByText();
@@ -440,65 +457,118 @@ export namespace TextNodeSmartTools {
     }
   }
 
-  const specialColorList = [new Color(59, 114, 60), new Color(61, 10, 11)];
-  const specialCharPrefix = ["✅", "❌"];
-
-  export function okk(project: Project) {
-    const selectedTextNodes = project.stageManager.getSelectedEntities().filter((node) => node instanceof TextNode);
-    for (const node of selectedTextNodes) {
-      if (specialColorList.some((value) => value.equals(node.color))) {
-        node.color = Color.Transparent;
-      } else {
-        node.color = new Color(59, 114, 60);
-      }
-      if (specialCharPrefix.some((value) => node.text.startsWith(value + " "))) {
-        node.rename(node.text.slice(2));
-      } else {
-        node.rename("✅ " + node.text);
-      }
-      project.controllerUtils.finishChangeTextNode(node);
-    }
-    project.stageManager.updateReferences();
+  export function okk() {
+    toast.warning("此功能已迁移到插件，详见插件系统 与 https://github.com/graphif/extension-text-node-todolist");
   }
 
-  export function err(project: Project) {
-    const selectedTextNodes = project.stageManager.getSelectedEntities().filter((node) => node instanceof TextNode);
-    for (const node of selectedTextNodes) {
-      if (specialColorList.some((value) => value.equals(node.color))) {
-        node.color = Color.Transparent;
-      } else {
-        node.color = new Color(61, 10, 11);
-      }
-      if (specialCharPrefix.some((value) => node.text.startsWith(value + " "))) {
-        node.rename(node.text.slice(2));
-      } else {
-        node.rename("❌ " + node.text);
-      }
-      project.controllerUtils.finishChangeTextNode(node);
-    }
-    project.stageManager.updateReferences();
+  export function err() {
+    toast.warning("此功能已迁移到插件，详见插件系统 与 https://github.com/graphif/extension-text-node-todolist");
   }
 
   /**
-   * 将选中的特殊格式的文本节点，转换成引用块
-   * @param project
-   * @returns
+   * 递归地从一个实体中提取所有可搜索的纯文本（markdown格式）
+   */
+  function collectEntityText(entity: Entity): string {
+    const parts: string[] = [];
+
+    if (entity instanceof Section) {
+      parts.push(entity.text);
+      if (!entity.detailsManager.isEmpty()) {
+        parts.push(DetailsManager.detailsToMarkdown(entity.details));
+      }
+      for (const child of entity.children) {
+        parts.push(collectEntityText(child));
+      }
+    } else if (entity instanceof TextNode) {
+      parts.push(entity.text);
+      if (!entity.detailsManager.isEmpty()) {
+        parts.push(DetailsManager.detailsToMarkdown(entity.details));
+      }
+    } else {
+      if (!entity.detailsManager.isEmpty()) {
+        parts.push(DetailsManager.detailsToMarkdown(entity.details));
+      }
+    }
+
+    return parts.filter(Boolean).join("\n");
+  }
+
+  /**
+   * 加载被引用文件，提取目标Section（或全文件）的所有文本内容，返回markdown字符串。
+   * 找不到文件或Section时静默返回空字符串。
+   */
+  async function extractSectionText(fileName: string, sectionName: string): Promise<string> {
+    try {
+      const recentFiles = await RecentFileManager.getRecentFiles();
+      const file = recentFiles.find(
+        (f) =>
+          PathString.getFileNameFromPath(f.uri.path) === fileName ||
+          PathString.getFileNameFromPath(f.uri.fsPath) === fileName,
+      );
+      if (!file) return "";
+
+      const tempProject = new Project(file.uri);
+      loadAllServicesBeforeInit(tempProject);
+      await tempProject.init();
+
+      try {
+        if (sectionName) {
+          const targetSection = tempProject.stage.find((obj) => obj instanceof Section && obj.text === sectionName) as
+            | Section
+            | undefined;
+          if (!targetSection) return "";
+          return collectEntityText(targetSection);
+        } else {
+          // 引用整个文件：收集所有顶层实体
+          return tempProject.stage
+            .filter((obj) => obj instanceof Entity)
+            .map((obj) => collectEntityText(obj as Entity))
+            .filter(Boolean)
+            .join("\n");
+        }
+      } finally {
+        tempProject.dispose();
+      }
+    } catch {
+      return "";
+    }
+  }
+
+  /**
+   * 将选中的特殊格式文本节点转换成引用块
+   *
+   * 流程：
+   * 1. 解析 [[文件名]] 或 [[文件名#Section名]]
+   * 2. 收集原节点上的所有连线（用于后续迁移）
+   * 3. 创建引用块节点
+   * 4. 用 分组框包裹引用块，以文件名作为框标题
+   * 5. 将被引用 Section 的文字提取到 details，供搜索使用
+   * 6. 迁移原节点的所有连线到新引用块
+   * 7. 删除原文本节点
    */
   export async function changeTextNodeToReferenceBlock(project: Project) {
     // 仅当项目不是草稿时才更新引用
     if (project.isDraft) {
-      toast.error("草稿项目不能更新为引用块");
+      toast.error("在草稿项目中不能创建引用块");
       return;
     }
 
     const selectedTextNodes = project.stageManager.getSelectedEntities().filter((node) => node instanceof TextNode);
     if (selectedTextNodes.length !== 1) {
-      toast.error("只能选中一个节点作为引用块");
+      if (selectedTextNodes.length === 0) {
+        toast.error(
+          "没有选中任何文本节点，无法触发文本节点到引用块的转化，可以尝试按Enter键退出编辑状态的方式触发转化",
+        );
+        return;
+      }
+      toast.error("只能选中一个节点作为引用块，您选中了多个文本节点");
       return;
     }
     const selectedNode = selectedTextNodes[0];
     const text = selectedNode.text;
-    let referenceName = "";
+
+    // 解析引用格式：[[文件名]] 或 [[文件名#Section名]]
+    let referenceName;
     if (text.trim().startsWith("[[") && text.trim().endsWith("]]")) {
       referenceName = text.trim().slice(2, -2);
     } else {
@@ -508,23 +578,22 @@ export namespace TextNodeSmartTools {
     const fileName = referenceName.split("#")[0];
     const sectionName = referenceName.split("#")[1] || "";
 
-    // 1. 获取所有与原节点相关的连线
+    // 步骤1：收集所有与原节点相关的连线（用于后续迁移）
     const associations = project.stageManager.getAssociations();
     const relatedEdges: (Edge | MultiTargetUndirectedEdge)[] = [];
     for (const association of associations) {
       if (association instanceof Edge) {
-        // 检查普通有向边
         if (association.source === selectedNode || association.target === selectedNode) {
           relatedEdges.push(association);
         }
       } else if (association instanceof MultiTargetUndirectedEdge) {
-        // 检查多目标无向边
         if (association.associationList.includes(selectedNode)) {
           relatedEdges.push(association);
         }
       }
     }
 
+    // 步骤2：创建引用块节点
     const referenceBlock = new ReferenceBlockNode(project, {
       collisionBox: new CollisionBox([
         new Rectangle(selectedNode.collisionBox.getRectangle().leftTop, new Vector(100, 100)),
@@ -535,27 +604,64 @@ export namespace TextNodeSmartTools {
 
     project.stageManager.add(referenceBlock);
 
-    // 2. 更新所有相关连线，将原节点替换为新的引用块节点
+    // 步骤3：用 分组框包裹引用块，以文件名作为标题
+    const section = Section.fromEntities(project, [referenceBlock]);
+    section.rename(fileName);
+    project.stageManager.add(section);
+
+    // 步骤4：提取被引用 Section 内的所有文字到 details，供当前项目搜索
+    const markdown = await extractSectionText(fileName, sectionName);
+    if (markdown.trim()) {
+      referenceBlock.details = DetailsManager.markdownToDetails(markdown);
+    }
+
+    // 步骤5：迁移所有相关连线到新的引用块节点
     for (const edge of relatedEdges) {
       if (edge instanceof Edge) {
-        // 更新普通有向边
-        if (edge.source === selectedNode) {
-          edge.source = referenceBlock;
-        }
-        if (edge.target === selectedNode) {
-          edge.target = referenceBlock;
-        }
+        if (edge.source === selectedNode) edge.source = referenceBlock;
+        if (edge.target === selectedNode) edge.target = referenceBlock;
       } else if (edge instanceof MultiTargetUndirectedEdge) {
-        // 更新多目标无向边
         const index = edge.associationList.indexOf(selectedNode);
-        if (index !== -1) {
-          edge.associationList[index] = referenceBlock;
-        }
+        if (index !== -1) edge.associationList[index] = referenceBlock;
       }
     }
 
-    // 3. 删除原节点
+    // 步骤6：删除原文本节点
     project.stageManager.delete(selectedNode);
     await project.referenceManager.insertRefDataToSourcePrgFile(fileName, sectionName);
+  }
+
+  export async function generateTreeBySelectedTextNodeTextWithAI(project: Project) {
+    const selectedTextNodes = project.stageManager.getSelectedEntities().filter((it) => it instanceof TextNode);
+    if (selectedTextNodes.length === 0) {
+      toast.error("请先选中文本节点");
+      return;
+    }
+    const texts = selectedTextNodes.map((node) => (node as TextNode).text);
+    const combinedText = texts.join("\n\n");
+    setAIWindowInitialText(combinedText, "请分析以下文本的结构，提取关键概念和关系，生成树形节点图：");
+    AIWindow.open();
+  }
+  export async function generateNetBySelectedTextNodeTextWithAI(project: Project) {
+    const selectedTextNodes = project.stageManager.getSelectedEntities().filter((it) => it instanceof TextNode);
+    if (selectedTextNodes.length === 0) {
+      toast.error("请先选中文本节点");
+      return;
+    }
+    const texts = selectedTextNodes.map((node) => (node as TextNode).text);
+    const combinedText = texts.join("\n\n");
+    setAIWindowInitialText(combinedText, "请分析以下文本中的因果关系、条件关系、时间顺序等逻辑关系，生成网状关系图：");
+    AIWindow.open();
+  }
+  export async function generateSummaryBySelectedTextNodeTextWithAI(project: Project) {
+    const selectedTextNodes = project.stageManager.getSelectedEntities().filter((it) => it instanceof TextNode);
+    if (selectedTextNodes.length === 0) {
+      toast.error("请先选中文本节点");
+      return;
+    }
+    const texts = selectedTextNodes.map((node) => (node as TextNode).text);
+    const combinedText = texts.join("\n\n");
+    setAIWindowInitialText(combinedText, "请总结以下文本的核心内容：");
+    AIWindow.open();
   }
 }

@@ -13,6 +13,7 @@ import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
 import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
 import { ConnectPoint } from "@/core/stage/stageObject/entity/ConnectPoint";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
+import { LatexNode } from "@/core/stage/stageObject/entity/LatexNode";
 import { PenStroke } from "@/core/stage/stageObject/entity/PenStroke";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { SvgNode } from "@/core/stage/stageObject/entity/SvgNode";
@@ -107,6 +108,9 @@ export class StageManager {
   getSvgNodes(): SvgNode[] {
     return this.project.stage.filter((node) => node instanceof SvgNode);
   }
+  getLatexNodes(): LatexNode[] {
+    return this.project.stage.filter((node) => node instanceof LatexNode) as LatexNode[];
+  }
 
   getStageObjects(): StageObject[] {
     return this.project.stage;
@@ -150,8 +154,8 @@ export class StageManager {
    * 更新节点的引用，将unknown的节点替换为真实的节点，保证对象在内存中的唯一性
    * 节点什么情况下会是unknown的？
    *
-   * 包含了对Section框的更新
-   * 包含了对Edge双向线偏移状态的更新
+   * 包含了对分组框的更新
+   * 包含了对Edge几何组偏移索引的更新（多重边/双向边自动散开）
    */
   updateReferences() {
     for (const entity of this.getEntities()) {
@@ -169,7 +173,7 @@ export class StageManager {
         }
       }
     }
-    // 以下是Section框的更新，y值降序排序，从下往上排序，因为下面的往往是内层的Section
+    // 以下是分组框的更新，y值降序排序，从下往上排序，因为下面的往往是内层的Section
     for (const section of this.getSections().sort(
       (a, b) => b.collisionBox.getRectangle().location.y - a.collisionBox.getRectangle().location.y,
     )) {
@@ -191,16 +195,53 @@ export class StageManager {
       section.adjustChildrenStateByCollapse();
     }
 
-    // 以下是LineEdge双向线偏移状态的更新
+    // 以下是LineEdge几何组偏移索引的更新
+    // 几何组 key：无向，(minNodeId, maxNodeId, epAtMin, epAtMax)
+    // A→B 和 B→A 端点位置相同时归入同一几何组，统一分配 shiftingIndex
+    const rateKey = (v: Vector): string => `${v.x.toFixed(2)},${v.y.toFixed(2)}`;
+    const geoGroups = new Map<string, LineEdge[]>();
+
     for (const edge of this.getLineEdges()) {
-      let isShifting = false;
-      for (const otherEdge of this.getLineEdges()) {
-        if (edge.source === otherEdge.target && edge.target === otherEdge.source) {
-          isShifting = true;
-          break;
-        }
+      if (edge.source.uuid === edge.target.uuid) {
+        // 自环跳过，不参与几何组，shiftingIndex 保持 0
+        edge.shiftingIndex = 0;
+        continue;
       }
-      edge.isShifting = isShifting;
+      const idA = edge.source.uuid;
+      const idB = edge.target.uuid;
+      let key: string;
+      if (idA <= idB) {
+        key = `${idA}|${idB}|${rateKey(edge.sourceRectangleRate)}|${rateKey(edge.targetRectangleRate)}`;
+      } else {
+        // B→A 方向：交换端点对应关系，使 A→B 与 B→A 落入同一几何组
+        key = `${idB}|${idA}|${rateKey(edge.targetRectangleRate)}|${rateKey(edge.sourceRectangleRate)}`;
+      }
+      if (!geoGroups.has(key)) geoGroups.set(key, []);
+      geoGroups.get(key)!.push(edge);
+    }
+
+    for (const [, edges] of geoGroups) {
+      // 按 uuid 字典序稳定排序，避免重渲染时 index 跳变
+      edges.sort((a, b) => a.uuid.localeCompare(b.uuid));
+      const count = edges.length;
+      // 对称分配 shiftingIndex：
+      // count=1 → [0]
+      // count=2 → [-1, 1]（跳过0，两条都弯，视觉对称）
+      // count=3 → [-1, 0, 1]
+      // count=4 → [-2, -1, 1, 2]
+      // count=5 → [-2, -1, 0, 1, 2]
+      for (let i = 0; i < count; i++) {
+        let idx: number;
+        if (count === 1) {
+          idx = 0;
+        } else if (count % 2 === 0) {
+          const half = count / 2;
+          idx = i < half ? i - half : i - half + 1;
+        } else {
+          idx = i - Math.floor(count / 2);
+        }
+        edges[i].shiftingIndex = idx;
+      }
     }
   }
 
@@ -238,8 +279,12 @@ export class StageManager {
     if (this.project.stage.length === 0) {
       return Vector.getZero();
     }
+    const physicalObjects = this.project.stage.filter((node) => node.isPhysical);
+    if (physicalObjects.length === 0) {
+      return Vector.getZero();
+    }
     const allNodesRectangle = Rectangle.getBoundingRectangle(
-      this.project.stage.map((node) => node.collisionBox.getRectangle()),
+      physicalObjects.map((node) => node.collisionBox.getRectangle()),
     );
     return allNodesRectangle.center;
   }
@@ -260,9 +305,11 @@ export class StageManager {
    * 获取舞台的矩形对象
    */
   getBoundingRectangle(): Rectangle {
-    const rect = Rectangle.getBoundingRectangle(
-      Array.from(this.project.stage).map((node) => node.collisionBox.getRectangle()),
-    );
+    const physicalObjects = Array.from(this.project.stage).filter((node) => node.isPhysical);
+    if (physicalObjects.length === 0) {
+      return new Rectangle(Vector.getZero(), Vector.getZero());
+    }
+    const rect = Rectangle.getBoundingRectangle(physicalObjects.map((node) => node.collisionBox.getRectangle()));
 
     return rect;
   }
@@ -579,30 +626,6 @@ export class StageManager {
     }
     this.project.historyManager.recordStep();
     return true;
-  }
-
-  /**
-   * 反转一个节点与他相连的所有连线方向
-   * @param connectEntity
-   */
-  private reverseNodeEdges(connectEntity: ConnectableEntity) {
-    const prepareReverseEdges = [];
-    for (const edge of this.getLineEdges()) {
-      if (edge.target === connectEntity || edge.source === connectEntity) {
-        prepareReverseEdges.push(edge);
-      }
-    }
-    this.project.nodeConnector.reverseEdges(prepareReverseEdges);
-  }
-
-  /**
-   * 反转所有选中的节点的每个节点的连线
-   */
-  reverseSelectedNodeEdge() {
-    const entities = this.getSelectedEntities().filter((entity) => entity instanceof ConnectableEntity);
-    for (const entity of entities) {
-      this.reverseNodeEdges(entity);
-    }
   }
 
   reverseSelectedEdges() {

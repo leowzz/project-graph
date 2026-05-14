@@ -16,17 +16,97 @@ import { Rectangle } from "@graphif/shapes";
 export class AutoAlign {
   constructor(private readonly project: Project) {}
 
+  private getSelectionOuterRectangle(entities: Entity[]): Rectangle | null {
+    if (entities.length === 0) return null;
+    let minLeft = Number.POSITIVE_INFINITY;
+    let minTop = Number.POSITIVE_INFINITY;
+    let maxRight = Number.NEGATIVE_INFINITY;
+    let maxBottom = Number.NEGATIVE_INFINITY;
+    for (const entity of entities) {
+      const rect = entity.collisionBox.getRectangle();
+      minLeft = Math.min(minLeft, rect.left);
+      minTop = Math.min(minTop, rect.top);
+      maxRight = Math.max(maxRight, rect.right);
+      maxBottom = Math.max(maxBottom, rect.bottom);
+    }
+    return new Rectangle(new Vector(minLeft, minTop), new Vector(maxRight - minLeft, maxBottom - minTop));
+  }
+
+  private calculateDistanceByRectangle(rectA: Rectangle, rectB: Rectangle) {
+    const dx = rectA.center.x - rectB.center.x;
+    const dy = rectA.center.y - rectB.center.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  private alignRectangleToTargetX(selectedRect: Rectangle, otherRect: Rectangle): number {
+    const distanceList = [
+      otherRect.left - selectedRect.left,
+      otherRect.center.x - selectedRect.center.x,
+      otherRect.right - selectedRect.right,
+    ];
+    const minDistance = ArrayFunctions.getMinAbsValue(distanceList);
+    return Math.abs(minDistance) < 25 ? minDistance : 0;
+  }
+
+  private alignRectangleToTargetY(selectedRect: Rectangle, otherRect: Rectangle): number {
+    const distanceList = [
+      otherRect.top - selectedRect.top,
+      otherRect.center.y - selectedRect.center.y,
+      otherRect.bottom - selectedRect.bottom,
+    ];
+    const minDistance = ArrayFunctions.getMinAbsValue(distanceList);
+    return Math.abs(minDistance) < 25 ? minDistance : 0;
+  }
+
+  private _addAlignEffectByRect(selectedRect: Rectangle, otherRect: Rectangle) {
+    this.project.effects.addEffect(EntityAlignEffect.fromEntity(selectedRect, otherRect));
+  }
+
+  private getGridSnapDeltaX(rect: Rectangle) {
+    const leftMod = rect.left % 50;
+    const rightMode = rect.right % 50;
+    const leftMoveDistance = Math.min(leftMod, 50 - leftMod);
+    const rightMoveDistance = Math.min(rightMode, 50 - rightMode);
+    if (leftMoveDistance < rightMoveDistance) {
+      return leftMod < 50 - leftMod ? -leftMod : 50 - leftMod;
+    } else {
+      return rightMode < 50 - rightMode ? -rightMode : 50 - rightMode;
+    }
+  }
+
+  private getGridSnapDeltaY(rect: Rectangle) {
+    const topMod = rect.top % 50;
+    const bottomMode = rect.bottom % 50;
+    const topMoveDistance = Math.min(topMod, 50 - topMod);
+    const bottomMoveDistance = Math.min(bottomMode, 50 - bottomMode);
+    if (topMoveDistance < bottomMoveDistance) {
+      return topMod < 50 - topMod ? -topMod : 50 - topMod;
+    } else {
+      return bottomMode < 50 - bottomMode ? -bottomMode : 50 - bottomMode;
+    }
+  }
+
   /**
    * 对齐到网格
    */
   alignAllSelectedToGrid() {
     const selectedEntities = this.project.stageManager.getSelectedEntities();
-    for (const selectedEntity of selectedEntities) {
-      if (selectedEntity.isAlignExcluded) {
-        // 涂鸦对象不参与对齐
-        continue;
+    const alignEntities = selectedEntities.filter((e) => !e.isAlignExcluded);
+    if (alignEntities.length === 0) return;
+    if (selectedEntities.length <= 1) {
+      for (const selectedEntity of alignEntities) {
+        this.onEntityMoveAlignToGrid(selectedEntity);
       }
-      this.onEntityMoveAlignToGrid(selectedEntity);
+      return;
+    }
+
+    const selectionRect = this.getSelectionOuterRectangle(alignEntities);
+    if (!selectionRect) return;
+    const dx = this.getGridSnapDeltaX(selectionRect);
+    const dy = this.getGridSnapDeltaY(selectionRect);
+    if (dx === 0 && dy === 0) return;
+    for (const entity of selectedEntities) {
+      entity.move(new Vector(dx, dy));
     }
   }
 
@@ -41,13 +121,56 @@ export class AutoAlign {
       .getEntities()
       .filter((entity) => !entity.isSelected)
       .filter((entity) => entity.collisionBox.getRectangle().isAbsoluteIn(viewRectangle));
-    for (const selectedEntity of selectedEntities) {
-      if (selectedEntity.isAlignExcluded) {
-        // 涂鸦对象不参与对齐
-        continue;
-      }
-      this.onEntityMoveAlignToOtherEntity(selectedEntity, otherEntities);
+    const alignEntities = selectedEntities.filter((e) => !e.isAlignExcluded);
+    if (alignEntities.length === 0) return;
+    if (selectedEntities.length <= 1) {
+      this.onEntityMoveAlignToOtherEntity(alignEntities[0], otherEntities);
+      return;
     }
+
+    const selectionRect = this.getSelectionOuterRectangle(alignEntities);
+    if (!selectionRect) return;
+    const sortedOtherEntities = otherEntities
+      .sort((a, b) => {
+        const distanceA = this.calculateDistanceByRectangle(selectionRect, a.collisionBox.getRectangle());
+        const distanceB = this.calculateDistanceByRectangle(selectionRect, b.collisionBox.getRectangle());
+        return distanceA - distanceB;
+      })
+      .filter((entity) => !entity.collisionBox.getRectangle().isCollideWithRectangle(selectionRect));
+
+    let xMoveDiff = 0;
+    let yMoveDiff = 0;
+    const xTargetRectangles: Rectangle[] = [];
+    const yTargetRectangles: Rectangle[] = [];
+    for (const otherEntity of sortedOtherEntities) {
+      const otherRect = otherEntity.collisionBox.getRectangle();
+      xMoveDiff = this.alignRectangleToTargetX(selectionRect, otherRect);
+      if (xMoveDiff !== 0) {
+        xTargetRectangles.push(otherRect);
+        break;
+      }
+    }
+    for (const otherEntity of sortedOtherEntities) {
+      const otherRect = otherEntity.collisionBox.getRectangle();
+      yMoveDiff = this.alignRectangleToTargetY(selectionRect, otherRect);
+      if (yMoveDiff !== 0) {
+        yTargetRectangles.push(otherRect);
+        break;
+      }
+    }
+
+    const isAlign = xMoveDiff !== 0 || yMoveDiff !== 0;
+    if (!isAlign) return;
+    const moveTargetRectangle = selectionRect.clone();
+    moveTargetRectangle.location.x += xMoveDiff;
+    moveTargetRectangle.location.y += yMoveDiff;
+    for (const entity of selectedEntities) {
+      entity.move(new Vector(xMoveDiff, yMoveDiff));
+    }
+    for (const targetRectangle of xTargetRectangles.concat(yTargetRectangles)) {
+      this._addAlignEffectByRect(moveTargetRectangle, targetRectangle);
+    }
+    SoundService.play.alignAndAttach();
   }
 
   /**
@@ -61,12 +184,52 @@ export class AutoAlign {
       .getEntities()
       .filter((entity) => !entity.isSelected)
       .filter((entity) => entity.collisionBox.getRectangle().isAbsoluteIn(viewRectangle));
-    for (const selectedEntity of selectedEntities) {
-      if (selectedEntity.isAlignExcluded) {
-        // 涂鸦对象不参与对齐
-        continue;
+    const alignEntities = selectedEntities.filter((e) => !e.isAlignExcluded);
+    if (alignEntities.length === 0) return;
+    if (selectedEntities.length <= 1) {
+      this.onEntityMoveAlignToOtherEntity(alignEntities[0], otherEntities, true);
+      return;
+    }
+
+    const selectionRect = this.getSelectionOuterRectangle(alignEntities);
+    if (!selectionRect) return;
+    const sortedOtherEntities = otherEntities
+      .sort((a, b) => {
+        const distanceA = this.calculateDistanceByRectangle(selectionRect, a.collisionBox.getRectangle());
+        const distanceB = this.calculateDistanceByRectangle(selectionRect, b.collisionBox.getRectangle());
+        return distanceA - distanceB;
+      })
+      .filter((entity) => !entity.collisionBox.getRectangle().isCollideWithRectangle(selectionRect));
+
+    let xMoveDiff = 0;
+    let yMoveDiff = 0;
+    const xTargetRectangles: Rectangle[] = [];
+    const yTargetRectangles: Rectangle[] = [];
+    for (const otherEntity of sortedOtherEntities) {
+      const otherRect = otherEntity.collisionBox.getRectangle();
+      xMoveDiff = this.alignRectangleToTargetX(selectionRect, otherRect);
+      if (xMoveDiff !== 0) {
+        xTargetRectangles.push(otherRect);
+        break;
       }
-      this.onEntityMoveAlignToOtherEntity(selectedEntity, otherEntities, true);
+    }
+    for (const otherEntity of sortedOtherEntities) {
+      const otherRect = otherEntity.collisionBox.getRectangle();
+      yMoveDiff = this.alignRectangleToTargetY(selectionRect, otherRect);
+      if (yMoveDiff !== 0) {
+        yTargetRectangles.push(otherRect);
+        break;
+      }
+    }
+
+    const isAlign = xMoveDiff !== 0 || yMoveDiff !== 0;
+    if (!isAlign) return;
+    const moveTargetRectangle = selectionRect.clone();
+    moveTargetRectangle.location.x += xMoveDiff;
+    moveTargetRectangle.location.y += yMoveDiff;
+    this.project.effects.addEffect(RectangleRenderEffect.fromPreAlign(this.project, moveTargetRectangle));
+    for (const targetRectangle of xTargetRectangles.concat(yTargetRectangles)) {
+      this.project.effects.addEffect(EntityAlignEffect.fromEntity(moveTargetRectangle, targetRectangle));
     }
   }
   /**
@@ -146,7 +309,7 @@ export class AutoAlign {
         return distanceA - distanceB; // 升序排序
       })
       .filter((entity) => {
-        // 排除entity是selectedEntity的父亲Section框
+        // 排除entity是selectedEntity的父亲分组框
         // 可以偷个懒，如果检测两个entity具有位置重叠了，那么直接排除过滤掉
         return !entity.collisionBox.getRectangle().isCollideWithRectangle(selectedEntity.collisionBox.getRectangle());
       });
@@ -181,7 +344,7 @@ export class AutoAlign {
       moveTargetRectangle.location.x += xMoveDiff;
       moveTargetRectangle.location.y += yMoveDiff;
 
-      this.project.effects.addEffect(RectangleRenderEffect.fromPreAlign(moveTargetRectangle));
+      this.project.effects.addEffect(RectangleRenderEffect.fromPreAlign(this.project, moveTargetRectangle));
       for (const targetRectangle of xTargetRectangles.concat(yTargetRectangles)) {
         this.project.effects.addEffect(EntityAlignEffect.fromEntity(moveTargetRectangle, targetRectangle));
       }

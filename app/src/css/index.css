@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @plugin "tailwind-scrollbar-hide";
+@plugin "@tailwindcss/typography";
 @import "tw-animate-css";
 
 @custom-variant page (&.active);
@@ -27,6 +28,9 @@
     width: 1.5em;
     height: 1.5em;
   } */
+  [data-radix-popper-content-wrapper]:has([data-slot="tooltip-content"]) {
+    transform: none !important;
+  }
 }
 
 @theme inline {
@@ -111,7 +115,8 @@
   }
 
   @keyframes blink {
-    0%, 100% {
+    0%,
+    100% {
       opacity: 1;
     }
     50% {

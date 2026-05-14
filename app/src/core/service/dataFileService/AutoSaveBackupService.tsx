@@ -52,7 +52,7 @@ export class AutoSaveBackupService {
       // 临时草稿先不备份
       return;
     }
-    if (this.project.state === ProjectState.Unsaved) {
+    if (this.project.projectState === ProjectState.Unsaved) {
       this.project.save();
     }
   }
@@ -61,63 +61,37 @@ export class AutoSaveBackupService {
    * 执行自动备份操作
    */
   private async autoBackup() {
-    try {
-      const currentHash = this.project.stageHash;
-      // 检查是否与上次备份有差异
-      if (currentHash === this.lastBackupHash) {
+    const currentHash = this.project.stageHash;
+    if (currentHash === this.lastBackupHash) {
+      return;
+    }
+
+    const primaryCustomPath = Settings.autoBackupCustomPath?.trim() ?? "";
+    const secondaryCustomPath = Settings.autoBackupCustomPath2?.trim() ?? "";
+
+    const candidates: Array<{ kind: "custom"; path: string } | { kind: "default" }> = [];
+    if (primaryCustomPath) {
+      candidates.push({ kind: "custom", path: primaryCustomPath });
+    }
+    if (secondaryCustomPath && secondaryCustomPath !== primaryCustomPath) {
+      candidates.push({ kind: "custom", path: secondaryCustomPath });
+    }
+    candidates.push({ kind: "default" });
+
+    for (const candidate of candidates) {
+      const backupDir = await this.resolveAutoBackupDir(candidate);
+      if (!backupDir) {
+        continue;
+      }
+      const ok = await this.tryBackupToDir(backupDir);
+      if (ok) {
+        this.lastBackupHash = currentHash;
+        await this.manageBackupFiles(backupDir);
         return;
       }
-
-      // 确定备份目录路径
-      let backupDir;
-
-      // 检查是否设置了自定义备份路径
-      if (Settings.autoBackupCustomPath) {
-        try {
-          // 使用自定义备份路径，为每个项目创建子目录
-          backupDir = await join(Settings.autoBackupCustomPath, PathString.fileNameSafity(this.getOriginalFileName()));
-          if (!(await exists(backupDir))) {
-            try {
-              await mkdir(backupDir, { recursive: true });
-            } catch (err) {
-              // 创建失败，显示错误提示并使用默认路径
-              toast.error(`无法在自定义路径创建备份目录: ${err}`);
-              // 重置为使用默认路径
-              backupDir = await join(
-                await appCacheDir(),
-                "auto-backup-v2",
-                PathString.fileNameSafity(this.getOriginalFileName()),
-              );
-            }
-          }
-        } catch (err) {
-          // 使用自定义路径出错，回退到默认路径
-          toast.error(`使用自定义备份路径出错: ${err}`);
-          backupDir = await join(
-            await appCacheDir(),
-            "auto-backup-v2",
-            PathString.fileNameSafity(this.getOriginalFileName()),
-          );
-        }
-      } else {
-        // 使用默认备份路径
-        backupDir = await join(
-          await appCacheDir(),
-          "auto-backup-v2",
-          PathString.fileNameSafity(this.getOriginalFileName()),
-        );
-      }
-
-      await this.backupCurrentProject(backupDir);
-
-      // 更新上次备份的哈希值
-      this.lastBackupHash = currentHash;
-
-      // 管理备份文件数量
-      await this.manageBackupFiles(backupDir);
-    } catch (err) {
-      toast.error("自动备份过程中发生错误:" + err);
     }
+
+    toast.error("自动备份失败：所有备份路径均不可用");
   }
 
   public async manualBackup() {
@@ -129,15 +103,37 @@ export class AutoSaveBackupService {
     }
   }
 
-  private async backupCurrentProject(backupDir: string) {
+  private async resolveAutoBackupDir(
+    candidate: { kind: "custom"; path: string } | { kind: "default" },
+  ): Promise<string | null> {
+    try {
+      if (candidate.kind === "custom") {
+        return await join(candidate.path, PathString.fileNameSafity(this.getOriginalFileName()));
+      }
+      return await join(await appCacheDir(), "auto-backup-v2", PathString.fileNameSafity(this.getOriginalFileName()));
+    } catch (err) {
+      toast.error(`生成备份路径失败: ${err}`);
+      return null;
+    }
+  }
+
+  private async tryBackupToDir(backupDir: string): Promise<boolean> {
+    try {
+      return await this.backupCurrentProject(backupDir);
+    } catch {
+      return false;
+    }
+  }
+
+  private async backupCurrentProject(backupDir: string): Promise<boolean> {
     // 确保备份目录存在
     if (!(await exists(backupDir))) {
       try {
-        // 创建备份目录
-        await mkdir(backupDir);
+        // 创建备份目录（recursive: true 确保父目录也会被一并创建）
+        await mkdir(backupDir, { recursive: true });
       } catch (err) {
         toast.error(`创建备份目录失败: ${err}`);
-        return;
+        return false;
       }
     }
 
@@ -147,6 +143,7 @@ export class AutoSaveBackupService {
 
     // 创建备份文件
     await this.createBackupFile(backupFilePath);
+    return true;
   }
 
   /**

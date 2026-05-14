@@ -13,7 +13,8 @@ export class StageObjectColorManager {
     for (const node of this.project.stageManager.getTextNodes()) {
       if (node.isSelected) {
         node.color = color;
-        this.project.controllerUtils.finishChangeTextNode(node);
+        // 向孪生兄弟同步 color
+        this.project.syncAssociationManager.syncFrom(node, "color");
       }
     }
     for (const node of this.project.stageManager.getSections()) {
@@ -29,6 +30,11 @@ export class StageObjectColorManager {
     for (const entity of this.project.stageManager.getSvgNodes()) {
       if (entity.isSelected) {
         entity.changeColor(color);
+      }
+    }
+    for (const node of this.project.stageManager.getLatexNodes()) {
+      if (node.isSelected) {
+        node.color = color;
       }
     }
     for (const entity of this.project.stageManager.getUrlNodes()) {

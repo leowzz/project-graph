@@ -6,6 +6,7 @@ import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox
 import { ConnectPoint } from "@/core/stage/stageObject/entity/ConnectPoint";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
+import { DetailsManager } from "@/core/stage/stageObject/tools/entityDetailsManager";
 import { Direction } from "@/types/directions";
 import { Color, ProgressNumber, Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
@@ -31,13 +32,35 @@ export class NodeAdder {
     addToSections: Section[],
     selectCurrent = false,
     shouldRecordHistory = true,
+    options?: {
+      overrideFontScaleLevel?: number;
+    },
   ): Promise<string> {
     const autoFillColor = this.getAutoColor();
+    const autoDetailsTemplate = Settings.autoNamerDetailsTemplate;
+    const autoDetails = autoDetailsTemplate
+      ? DetailsManager.markdownToDetails(
+          this.project.stageUtils.replaceAutoNameTemplate(
+            autoDetailsTemplate,
+            this.project.stageManager.getTextNodes()[0],
+          ),
+        )
+      : [];
     const node = new TextNode(this.project, {
       text: await this.getAutoName(),
+      details: autoDetails,
       collisionBox: new CollisionBox([new Rectangle(clickWorldLocation, Vector.getZero())]),
       color: autoFillColor,
+      fontScaleLevel: options?.overrideFontScaleLevel ?? 0,
     });
+    // 根据摄像机缩放级别自动设置字体大小，使节点视觉大小保持恒定
+    if (options?.overrideFontScaleLevel === undefined && Settings.newNodeScaleByCamera) {
+      const autoLevel =
+        Math.round(-2 * Math.log2(this.project.camera.currentScale)) + Settings.newNodeScaleByCameraOffset;
+      if (autoLevel !== 0) {
+        node.setFontScaleLevel(autoLevel);
+      }
+    }
     // 将node本身向左上角移动，使其居中
     node.moveTo(node.rectangle.location.subtract(node.rectangle.size.divide(2)));
     this.project.stageManager.add(node);
@@ -101,7 +124,9 @@ export class NodeAdder {
       createLocation = entityRectangle.rightCenter.add(new Vector(distanceLength, 0));
     }
     addToSections = this.project.sectionMethods.getFatherSections(selectedEntity);
-    const uuid = await this.addTextNodeByClick(createLocation, addToSections, selectCurrent, false);
+    const uuid = await this.addTextNodeByClick(createLocation, addToSections, selectCurrent, false, {
+      overrideFontScaleLevel: selectedEntity instanceof TextNode ? selectedEntity.fontScaleLevel : 0,
+    });
     const newNode = this.project.stageManager.getTextNodeByUUID(uuid);
     if (!newNode) {
       throw new Error("Failed to add node");

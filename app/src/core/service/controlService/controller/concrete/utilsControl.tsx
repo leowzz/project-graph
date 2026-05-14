@@ -1,35 +1,27 @@
 import { Project, service } from "@/core/Project";
-import { Renderer } from "@/core/render/canvas2d/renderer";
-import { LogicNodeNameToRenderNameMap } from "@/core/service/dataGenerateService/autoComputeEngine/logicNodeNameEnum";
-import { CrossFileContentQuery } from "@/core/service/dataGenerateService/crossFileContentQuery";
-import Fuse from "fuse.js";
 import { EntityCreateFlashEffect } from "@/core/service/feedbackService/effectEngine/concrete/EntityCreateFlashEffect";
 import { SubWindow } from "@/core/service/SubWindow";
-import { RecentFileManager } from "@/core/service/dataFileService/RecentFileManager";
-import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
-import { StageObject } from "@/core/stage/stageObject/abstract/StageObject";
-import { Edge } from "@/core/stage/stageObject/association/Edge";
+import type { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
+import type { StageObject } from "@/core/stage/stageObject/abstract/StageObject";
 import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
-import { MultiTargetUndirectedEdge } from "@/core/stage/stageObject/association/MutiTargetUndirectedEdge";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { TextNode } from "@/core/stage/stageObject/entity/TextNode";
-import { UrlNode } from "@/core/stage/stageObject/entity/UrlNode";
 import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { SvgNode } from "@/core/stage/stageObject/entity/SvgNode";
 import { ReferenceBlockNode } from "@/core/stage/stageObject/entity/ReferenceBlockNode";
-import AutoCompleteWindow from "@/sub/AutoCompleteWindow";
 import NodeDetailsWindow from "@/sub/NodeDetailsWindow";
-import { Direction } from "@/types/directions";
+import type { Direction } from "@/types/directions";
 import { isDesktop } from "@/utils/platform";
-import { Color, colorInvert, Vector } from "@graphif/data-structures";
+import { colorInvert, type Vector } from "@graphif/data-structures";
 import { toast } from "sonner";
-import { PathString } from "@/utils/pathString";
-import { DateChecker } from "@/utils/dateChecker";
-import { TextNodeSmartTools } from "@/core/service/dataManageService/textNodeSmartTools";
-import { ReferenceManager } from "@/core/stage/stageManager/concreteMethods/StageReferenceManager";
-import _ from "lodash";
 import { Settings } from "@/core/service/Settings";
 import { RectangleLittleNoteEffect } from "@/core/service/feedbackService/effectEngine/concrete/RectangleLittleNoteEffect";
+import {
+  autoChangeTextNodeToLatexNode,
+  autoChangeTextNodeToReferenceBlock,
+  AutoCompleteManager,
+  LatexPreviewManager,
+} from "./utilsControlTools";
 
 /**
  * 这里是专门存放代码相同的地方
@@ -37,8 +29,10 @@ import { RectangleLittleNoteEffect } from "@/core/service/feedbackService/effect
  */
 @service("controllerUtils")
 export class ControllerUtils {
-  private currentAutoCompleteWindowId: string | undefined;
-  constructor(private readonly project: Project) {}
+  private readonly autoComplete: AutoCompleteManager;
+  constructor(private readonly project: Project) {
+    this.autoComplete = new AutoCompleteManager(project);
+  }
 
   /**
    * 编辑节点
@@ -48,14 +42,12 @@ export class ControllerUtils {
     this.project.controller.isCameraLocked = true;
     // 停止摄像机漂移
     this.project.camera.stopImmediately();
+    // 停止实体移动漂移
+    this.project.entityMoveManager.stopImmediately();
     const rectWorld = clickedNode.collisionBox.getRectangle();
     const rectView = this.project.renderer.transformWorld2View(rectWorld);
-    const fontColor = (
-      clickedNode.color.a === 1
-        ? colorInvert(clickedNode.color)
-        : colorInvert(this.project.stageStyleManager.currentStyle.Background)
-    ).toHexStringWithoutAlpha();
     // 编辑节点
+    const textBeforeEdit = clickedNode.text;
     clickedNode.isEditing = true;
     // 添加进入编辑状态的闪烁特效
     this.project.effects.addEffect(
@@ -64,18 +56,20 @@ export class ControllerUtils {
         this.project.stageStyleManager.currentStyle.effects.successShadow,
       ),
     );
-    // RectangleElement.div(rectView, this.project.stageStyleManager.currentStyle.CollideBoxSelected);
     let lastAutoCompleteWindowId: string;
+    // 实时 LaTeX 预览管理器（输入 $...$ 时在节点上方显示）
+    const latexPreview = new LatexPreviewManager();
+
     this.project.inputElement
       .textarea(
         clickedNode.text,
-        // "",
         async (text, ele) => {
+          const currentRequestId = latexPreview.nextRequestId();
           if (lastAutoCompleteWindowId) {
             SubWindow.close(lastAutoCompleteWindowId);
           }
           // 自动补全逻辑
-          await this.handleAutoComplete(text, clickedNode, ele, (value) => {
+          await this.autoComplete.handle(text, clickedNode, ele, (value) => {
             lastAutoCompleteWindowId = value;
           });
           // onChange
@@ -97,7 +91,24 @@ export class ControllerUtils {
             section.adjustLocationAndSize();
           }
 
-          this.finishChangeTextNode(clickedNode);
+          // 实时 LaTeX 预览：检测光标附近的 $...$ 片段
+          const cursor =
+            ele.selectionStart === null
+              ? text.length
+              : ele.selectionStart > 0 && text[ele.selectionStart - 1] === "$"
+                ? ele.selectionStart - 1
+                : ele.selectionStart;
+          const latexContent = LatexPreviewManager.getInlineLatexAtCursor(text, cursor);
+          if (latexContent !== null) {
+            if (!latexPreview.isDismissed() && currentRequestId === latexPreview.currentRequestId()) {
+              const currentRectView = this.project.renderer.transformWorld2View(
+                clickedNode.collisionBox.getRectangle(),
+              );
+              latexPreview.update(latexContent, currentRectView);
+            }
+          } else {
+            latexPreview.remove();
+          }
         },
         {
           position: "fixed",
@@ -114,178 +125,37 @@ export class ControllerUtils {
           minWidth: `${rectView.width.toFixed(2)}px`,
           minHeight: `${rectView.height.toFixed(2)}px`,
           // height: `${rectView.height.toFixed(2)}px`,
-          padding: Renderer.NODE_PADDING * this.project.camera.currentScale + "px",
-          fontSize: clickedNode.getFontSize() * this.project.camera.currentScale + "px",
+          padding: `${clickedNode.getPadding() * this.project.camera.currentScale}px`,
+          fontSize: `${clickedNode.getFontSize() * this.project.camera.currentScale}px`,
           backgroundColor: "transparent",
-          color: fontColor,
+          color: (clickedNode.color.a === 1
+            ? colorInvert(clickedNode.color)
+            : colorInvert(this.project.stageStyleManager.currentStyle.Background)
+          ).toHexStringWithoutAlpha(),
           outline: `solid ${1 * this.project.camera.currentScale}px ${this.project.stageStyleManager.currentStyle.effects.successShadow.toNewAlpha(0.1).toString()}`,
-          borderRadius: `${Renderer.NODE_ROUNDED_RADIUS * this.project.camera.currentScale}px`,
+          borderRadius: `${clickedNode.getBorderRadius() * this.project.camera.currentScale}px`,
         },
         selectAll,
         // rectWorld.width * this.project.camera.currentScale, // limit width
       )
       .then(async () => {
         SubWindow.close(lastAutoCompleteWindowId);
+        // 移除 LaTeX 实时预览 div
+        latexPreview.dismiss();
         clickedNode!.isEditing = false;
         this.project.controller.isCameraLocked = false;
-        this.project.historyManager.recordStep();
+        if (clickedNode.text !== textBeforeEdit) {
+          this.project.historyManager.recordStep();
+        }
 
-        // 实验
-        this.finishChangeTextNode(clickedNode);
-        await this.autoChangeTextNodeToReferenceBlock(this.project, clickedNode);
+        await autoChangeTextNodeToReferenceBlock(this.project, clickedNode);
+        // 检测 $...$ 格式，自动转换为 LaTeX 公式节点
+        await autoChangeTextNodeToLatexNode(this.project, clickedNode);
         // 文本节点退出编辑模式后，检查是否需要自动格式化树形结构
         if (Settings.textNodeAutoFormatTreeWhenExitEdit) {
           // 格式化树形结构
           this.project.keyboardOnlyTreeEngine.adjustTreeNode(clickedNode, false);
         }
-      });
-  }
-
-  editEdgeText(clickedLineEdge: Edge, selectAll = true) {
-    this.project.controller.isCameraLocked = true;
-    // 停止摄像机漂移
-    this.project.camera.stopImmediately();
-
-    // clickedLineEdge.isEditing = true;
-    const textAreaLocation = this.project.renderer
-      .transformWorld2View(clickedLineEdge.textRectangle.location)
-      .add(Vector.same(Renderer.NODE_PADDING).multiply(this.project.camera.currentScale));
-    this.project.inputElement
-      .textarea(
-        clickedLineEdge.text,
-        (text) => {
-          clickedLineEdge?.rename(text);
-        },
-        {
-          position: "fixed",
-          resize: "none",
-          boxSizing: "border-box",
-          overflow: "hidden",
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-all",
-          left: `${textAreaLocation.x.toFixed(2)}px`,
-          top: `${textAreaLocation.y.toFixed(2)}px`,
-          fontSize: Renderer.FONT_SIZE * this.project.camera.currentScale + "px",
-          backgroundColor: this.project.stageStyleManager.currentStyle.Background.toString(),
-          color: this.project.stageStyleManager.currentStyle.StageObjectBorder.toString(),
-          outline: "solid 1px rgba(255,255,255,0.1)",
-          // marginTop: -8 * this.project.camera.currentScale + "px",
-        },
-        selectAll,
-      )
-      .then(() => {
-        // clickedLineEdge!.isEditing = false;
-        // 因为这里用的是不透明文本框，所以不需要停止节点上文字的渲染
-        this.project.controller.isCameraLocked = false;
-        this.project.historyManager.recordStep();
-      });
-  }
-  editMultiTargetEdgeText(clickedEdge: MultiTargetUndirectedEdge, selectAll = true) {
-    this.project.controller.isCameraLocked = true;
-    // 停止摄像机漂移
-    this.project.camera.stopImmediately();
-
-    // clickedLineEdge.isEditing = true;
-    const textAreaLocation = this.project.renderer
-      .transformWorld2View(clickedEdge.textRectangle.location)
-      .add(Vector.same(Renderer.NODE_PADDING).multiply(this.project.camera.currentScale));
-    this.project.inputElement
-      .textarea(
-        clickedEdge.text,
-        (text) => {
-          clickedEdge?.rename(text);
-        },
-        {
-          position: "fixed",
-          resize: "none",
-          boxSizing: "border-box",
-          overflow: "hidden",
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-all",
-          left: `${textAreaLocation.x.toFixed(2)}px`,
-          top: `${textAreaLocation.y.toFixed(2)}px`,
-          fontSize: Renderer.FONT_SIZE * this.project.camera.currentScale + "px",
-          backgroundColor: this.project.stageStyleManager.currentStyle.Background.toString(),
-          color: this.project.stageStyleManager.currentStyle.StageObjectBorder.toString(),
-          outline: "solid 1px rgba(255,255,255,0.1)",
-          // marginTop: -8 * this.project.camera.currentScale + "px",
-        },
-        selectAll,
-      )
-      .then(() => {
-        // clickedLineEdge!.isEditing = false;
-        // 因为这里用的是不透明文本框，所以不需要停止节点上文字的渲染
-        this.project.controller.isCameraLocked = false;
-        this.project.historyManager.recordStep();
-      });
-  }
-
-  editUrlNodeTitle(clickedUrlNode: UrlNode) {
-    this.project.controller.isCameraLocked = true;
-    // 停止摄像机漂移
-    this.project.camera.stopImmediately();
-    // 编辑节点
-    clickedUrlNode.isEditingTitle = true;
-    this.project.inputElement
-      .input(
-        this.project.renderer
-          .transformWorld2View(clickedUrlNode.rectangle.location)
-          .add(Vector.same(Renderer.NODE_PADDING).multiply(this.project.camera.currentScale)),
-        clickedUrlNode.title,
-        (text) => {
-          clickedUrlNode?.rename(text);
-        },
-        {
-          fontSize: Renderer.FONT_SIZE * this.project.camera.currentScale + "px",
-          backgroundColor: "transparent",
-          color: this.project.stageStyleManager.currentStyle.StageObjectBorder.toString(),
-          outline: "none",
-          marginTop: -8 * this.project.camera.currentScale + "px",
-          width: "100vw",
-        },
-      )
-      .then(() => {
-        clickedUrlNode!.isEditingTitle = false;
-        this.project.controller.isCameraLocked = false;
-        this.project.historyManager.recordStep();
-      });
-  }
-
-  editSectionTitle(section: Section) {
-    // 检查section是否被锁定（包括祖先section的锁定状态）
-    if (this.project.sectionMethods.isObjectBeLockedBySection(section)) {
-      toast.error("无法编辑已锁定的section");
-      return;
-    }
-    this.project.controller.isCameraLocked = true;
-    // 停止摄像机漂移
-    this.project.camera.stopImmediately();
-    // 编辑节点
-    section.isEditingTitle = true;
-    this.project.inputElement
-      .input(
-        this.project.renderer
-          .transformWorld2View(section.rectangle.location)
-          .add(Vector.same(Renderer.NODE_PADDING).multiply(this.project.camera.currentScale)),
-        section.text,
-        (text) => {
-          section.rename(text);
-        },
-        {
-          position: "fixed",
-          resize: "none",
-          boxSizing: "border-box",
-          fontSize: Renderer.FONT_SIZE * this.project.camera.currentScale + "px",
-          backgroundColor: "transparent",
-          color: this.project.stageStyleManager.currentStyle.StageObjectBorder.toString(),
-          outline: `solid ${2 * this.project.camera.currentScale}px ${this.project.stageStyleManager.currentStyle.effects.successShadow.toNewAlpha(0.25).toString()}`,
-          marginTop: -8 * this.project.camera.currentScale + "px",
-        },
-      )
-      .then(() => {
-        section.isEditingTitle = false;
-        this.project.controller.isCameraLocked = false;
-        this.project.historyManager.recordStep();
       });
   }
 
@@ -304,9 +174,10 @@ export class ControllerUtils {
   editNodeDetails(clickedNode: Entity) {
     // this.project.controller.isCameraLocked = true;
     // 编辑节点详细信息的视野移动锁定解除，——用户：快深频
-    console.log();
     NodeDetailsWindow.open(clickedNode.details, (value) => {
       clickedNode.details = value;
+      // 向孪生兄弟同步 details
+      this.project.syncAssociationManager.syncFrom(clickedNode, "details");
     });
   }
 
@@ -361,6 +232,9 @@ export class ControllerUtils {
     }
     if (clickedStageObject === null) {
       for (const association of this.project.stageManager.getAssociations()) {
+        if (!association.isPhysical) {
+          continue; // 非物理对象（如 SyncAssociation）不参与点击检测
+        }
         if (association instanceof LineEdge) {
           if (association.target.isHiddenBySectionCollapse && association.source.isHiddenBySectionCollapse) {
             continue;
@@ -406,7 +280,8 @@ export class ControllerUtils {
   }
 
   /**
-   * 将选中的内容标准化，如果选中了外层的section，也选中了内层的物体，则取消选中内部的物体
+   * 将选中的内容标准化
+   * 如果选中了外层的section，也选中了内层的物体，则取消选中内部的物体
    */
   public selectedEntityNormalizing() {
     const selectedEntities = this.project.stageManager.getSelectedEntities();
@@ -425,264 +300,5 @@ export class ControllerUtils {
         }
       }
     }
-  }
-
-  /**
-   * 处理自动补全逻辑
-   * @param text 当前输入的文本
-   * @param node 当前编辑的文本节点
-   * @param ele 输入框元素
-   * @param setWindowId 设置自动补全窗口ID的回调函数
-   */
-  private async handleAutoComplete(
-    text: string,
-    node: TextNode,
-    ele: HTMLTextAreaElement,
-    setWindowId: (id: string) => void,
-  ) {
-    // 处理#开头的逻辑节点补全
-    if (text.startsWith("#")) {
-      this.handleAutoCompleteLogic(text, node, ele, setWindowId);
-      // 处理[[格式的补全
-    } else if (text.startsWith("[[")) {
-      this.handleAutoCompleteReferenceDebounced(text, node, ele, setWindowId);
-    }
-  }
-  private handleAutoCompleteReferenceDebounced = _.debounce(
-    (text: string, node: TextNode, ele: HTMLTextAreaElement, setWindowId: (id: string) => void) => {
-      this.handleAutoCompleteReference(text, node, ele, setWindowId);
-      console.log("ref匹配执行了");
-    },
-    500,
-  );
-
-  private handleAutoCompleteLogic(
-    text: string,
-    node: TextNode,
-    ele: HTMLTextAreaElement,
-    setWindowId: (id: string) => void,
-  ) {
-    // 提取搜索文本，去掉所有#
-    const searchText = text.replaceAll("#", "").toLowerCase();
-
-    const logicNodeEntries = Object.entries(LogicNodeNameToRenderNameMap).map(([key, renderName]) => ({
-      key,
-      name: key.replaceAll("#", "").toLowerCase(),
-      renderName,
-    }));
-
-    const fuse = new Fuse(logicNodeEntries, {
-      keys: ["name"],
-      threshold: 0.3, // (0 = exact, 1 = very fuzzy)
-    });
-
-    const searchResults = fuse.search(searchText);
-    const matchingNodes = searchResults.map((result) => [result.item.key, result.item.renderName]);
-
-    // 打开自动补全窗口
-    if (this.currentAutoCompleteWindowId) {
-      SubWindow.close(this.currentAutoCompleteWindowId);
-    }
-    if (matchingNodes.length > 0) {
-      const windowId = AutoCompleteWindow.open(
-        this.project.renderer.transformWorld2View(node.rectangle).leftBottom,
-        Object.fromEntries(matchingNodes),
-        (value) => {
-          ele.value = value;
-        },
-      ).id;
-      this.currentAutoCompleteWindowId = windowId;
-      setWindowId(windowId);
-    } else {
-      const windowId = AutoCompleteWindow.open(
-        this.project.renderer.transformWorld2View(node.rectangle).leftBottom,
-        {
-          tip:
-            searchText === "" ? "暂无匹配的逻辑节点名称，请输入全大写字母" : `暂无匹配的逻辑节点名称【${searchText}】`,
-        },
-        (value) => {
-          ele.value = value;
-        },
-      ).id;
-      this.currentAutoCompleteWindowId = windowId;
-      setWindowId(windowId);
-    }
-  }
-
-  private async handleAutoCompleteReference(
-    text: string,
-    node: TextNode,
-    ele: HTMLTextAreaElement,
-    setWindowId: (id: string) => void,
-  ) {
-    // 提取搜索文本，去掉开头的[[
-    const searchText = text.slice(2).toLowerCase().replace("]]", "");
-    // 检查是否包含#
-    const hasHash = searchText.includes("#");
-
-    if (!hasHash) {
-      // 获取最近文件列表
-      const recentFiles = await RecentFileManager.getRecentFiles();
-
-      // 处理最近文件列表，提取文件名
-      const fileEntries = recentFiles.map((file) => {
-        // 提取文件名（不含扩展名）
-        const fileName = PathString.getFileNameFromPath(file.uri.path);
-        return { name: fileName, time: file.time }; // 使用对象格式以便Fuse.js搜索
-      });
-
-      const fuse = new Fuse(fileEntries, {
-        keys: ["name"], // 搜索name属性
-        threshold: 0.3,
-      });
-
-      const searchResults = fuse.search(searchText);
-      const matchingFiles = searchResults.map((result) => [
-        result.item.name,
-        DateChecker.formatRelativeTime(result.item.time),
-      ]); // 转换为相对时间格式
-
-      // 打开自动补全窗口
-      if (this.currentAutoCompleteWindowId) {
-        SubWindow.close(this.currentAutoCompleteWindowId);
-      }
-      if (matchingFiles.length > 0) {
-        const windowId = AutoCompleteWindow.open(
-          this.project.renderer.transformWorld2View(node.rectangle).leftBottom,
-          Object.fromEntries(matchingFiles),
-          (value) => {
-            // 用户选择后，需要保留[[前缀并添加选择的文件名
-            ele.value = `[[${value}`;
-          },
-        ).id;
-        this.currentAutoCompleteWindowId = windowId;
-        setWindowId(windowId);
-      } else {
-        const windowId = AutoCompleteWindow.open(
-          this.project.renderer.transformWorld2View(node.rectangle).leftBottom,
-          {
-            tip: searchText === "" ? "暂无最近文件" : `暂无匹配的最近文件【${searchText}】`,
-          },
-          (value) => {
-            ele.value = `[[${value}`;
-          },
-        ).id;
-        this.currentAutoCompleteWindowId = windowId;
-        setWindowId(windowId);
-      }
-    } else {
-      // 包含#，拆分文件名和section名称
-      const [fileName, sectionName] = searchText.split("#", 2);
-
-      // 获取该文件中的所有section
-      const sections = await CrossFileContentQuery.getSectionsByFileName(fileName);
-
-      // 将section名称转换为对象数组，以便Fuse.js搜索
-      const sectionObjects = sections.map((section) => ({ name: section }));
-      let searchResults;
-
-      // 当section名称为空时，显示所有section（最多20个）
-      if (!sectionName?.trim()) {
-        // 取前20个section
-        searchResults = sectionObjects.slice(0, 20).map((item) => ({ item }));
-      } else {
-        // 创建Fuse搜索器，对section名称进行模糊匹配
-        const fuse = new Fuse(sectionObjects, { keys: ["name"], threshold: 0.3 });
-        searchResults = fuse.search(sectionName);
-      }
-
-      const matchingSections = searchResults.map((result) => [result.item.name, ""]);
-
-      // 打开自动补全窗口
-      if (this.currentAutoCompleteWindowId) {
-        SubWindow.close(this.currentAutoCompleteWindowId);
-      }
-      if (matchingSections.length > 0) {
-        const windowId = AutoCompleteWindow.open(
-          this.project.renderer.transformWorld2View(node.rectangle).leftBottom,
-          Object.fromEntries(matchingSections),
-          (value) => {
-            // 用户选择后，需要保留[[前缀、文件名和#，并添加选择的section名称
-            ele.value = `[[${fileName}#${value}`;
-          },
-        ).id;
-        this.currentAutoCompleteWindowId = windowId;
-        setWindowId(windowId);
-      } else {
-        const windowId = AutoCompleteWindow.open(
-          this.project.renderer.transformWorld2View(node.rectangle).leftBottom,
-          {
-            tip: sectionName === "" ? `这个文件中没有section，无法创建引用` : `暂无匹配的section【${sectionName}】`,
-          },
-          (value) => {
-            ele.value = `[[${fileName}#${value}`;
-          },
-        ).id;
-        this.currentAutoCompleteWindowId = windowId;
-        setWindowId(windowId);
-      }
-    }
-  }
-
-  // 完成编辑节点的操作
-  public finishChangeTextNode(textNode: TextNode) {
-    this.syncChangeTextNode(textNode);
-  }
-
-  private async autoChangeTextNodeToReferenceBlock(project: Project, textNode: TextNode) {
-    if (textNode.text.startsWith("[[") && textNode.text.endsWith("]]")) {
-      textNode.isSelected = true;
-      // 要加一个前置判断，防止用户输入本来就没有的东西
-
-      const recentFiles = await RecentFileManager.getRecentFiles();
-      const parserResult = ReferenceManager.referenceBlockTextParser(textNode.text);
-      if (!parserResult.isValid) {
-        toast.error(parserResult.invalidReason);
-        return;
-      }
-      if (!recentFiles.map((item) => PathString.getFileNameFromPath(item.uri.fsPath)).includes(parserResult.fileName)) {
-        toast.error(`文件【${parserResult.fileName}】不在“最近打开的文件”中，不能创建引用`);
-        return;
-      }
-      if (parserResult.sectionName) {
-        // 用户输入了#，需要检查section是否存在
-        const sections = await CrossFileContentQuery.getSectionsByFileName(parserResult.fileName);
-        if (!sections.includes(parserResult.sectionName)) {
-          toast.error(`文件【${parserResult.fileName}】中没有section【${parserResult.sectionName}】，不能创建引用`);
-          return;
-        }
-      }
-      await TextNodeSmartTools.changeTextNodeToReferenceBlock(project);
-    }
-  }
-
-  // 同步更改孪生节点
-  private syncChangeTextNode(textNode: TextNode) {
-    // 查找所有无向边，如果无向边的颜色 = (11, 45, 14, 0)，那么就找到了一个关联
-
-    const otherUUID: Set<string> = new Set();
-
-    // 直接和这个节点相连的所有超边
-    this.project.stageManager
-      .getAssociations()
-      .filter((association) => association instanceof MultiTargetUndirectedEdge)
-      .filter((association) => association.color.equals(new Color(11, 45, 14, 0)))
-      .filter((association) => association.associationList.includes(textNode))
-      .forEach((association) => {
-        association.associationList.forEach((node) => {
-          if (node instanceof TextNode) {
-            otherUUID.add(node.uuid);
-          }
-        });
-      });
-
-    otherUUID.forEach((uuid) => {
-      const node = this.project.stageManager.getTextNodeByUUID(uuid);
-      if (node) {
-        // node.text = textNode.text;
-        node.rename(textNode.text);
-        node.color = textNode.color;
-      }
-    });
   }
 }

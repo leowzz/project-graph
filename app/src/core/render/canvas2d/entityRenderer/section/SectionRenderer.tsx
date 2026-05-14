@@ -45,6 +45,21 @@ export class SectionRenderer {
           : colorInvert(this.project.stageStyleManager.currentStyle.Background),
       );
     }
+    // 选中时渲染展开尺寸的虚线框
+    if (section.isSelected) {
+      const normalRect = section["_collisionBoxNormal"].getRectangle();
+      this.project.shapeRenderer.renderDashedRect(
+        new Rectangle(
+          this.project.renderer.transformWorld2View(normalRect.location),
+          normalRect.size.multiply(this.project.camera.currentScale),
+        ),
+        Color.Transparent,
+        this.project.stageStyleManager.currentStyle.CollideBoxSelected,
+        1.5 * this.project.camera.currentScale,
+        Renderer.NODE_ROUNDED_RADIUS * this.project.camera.currentScale,
+        6 * this.project.camera.currentScale,
+      );
+    }
   }
 
   // 非折叠状态
@@ -80,7 +95,8 @@ export class SectionRenderer {
 
   renderBackgroundColor(section: Section) {
     if (Settings.sectionBackgroundFillMode === "titleOnly") {
-      // 只填充顶部标题条（不透明）
+      // 只填充顶部标题条（不透明），标题为空时跳过
+      if (section.text === "") return;
       const color = section.color.clone();
       const titleBarHeight = (Renderer.FONT_SIZE + Renderer.NODE_PADDING * 2) * this.project.camera.currentScale;
       const titleBarRect = new Rectangle(
@@ -120,7 +136,7 @@ export class SectionRenderer {
     // TODO: 性能有待优化
     // 计算视野范围矩形
     const viewRect = this.project.renderer.getCoverWorldRectangle();
-    // 计算section框的最长边
+    // 计算分组框的最长边
     const sectionMaxSide = Math.max(section.rectangle.size.x, section.rectangle.size.y);
     // 计算视野范围矩形的最长边
     const viewMaxSide = Math.max(viewRect.size.x, viewRect.size.y);
@@ -164,7 +180,7 @@ export class SectionRenderer {
     // TODO: 性能有待优化
     // 计算视野范围矩形
     const viewRect = this.project.renderer.getCoverWorldRectangle();
-    // 计算section框的最长边
+    // 计算分组框的最长边
     const sectionMaxSide = Math.max(section.rectangle.size.x, section.rectangle.size.y);
     // 计算视野范围矩形的最长边
     const viewMaxSide = Math.max(viewRect.size.x, viewRect.size.y);
